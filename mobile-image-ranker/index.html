@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Ranker PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="index.css">
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app" class="app-container">
+        
+        <!-- Welcome / Import Screen -->
+        <section id="welcome-screen" class="screen active">
+            <div class="glass-card welcome-card">
+                <div class="logo-area">
+                    <div class="logo-icon">📂</div>
+                    <h1>Image Ranker</h1>
+                    <p class="subtitle">Rank your images offline using swipe gestures</p>
+                </div>
+
+                <div class="import-section">
+                    <p class="instruction">Choose a folder containing images to begin ranking:</p>
+                    
+                    <!-- Android Chrome webkitdirectory selector -->
+                    <label class="btn btn-primary btn-block btn-lg" id="folder-label">
+                        <span>Select Folder</span>
+                        <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;">
+                    </label>
+
+                    <p class="or-separator">or select files manually</p>
+
+                    <label class="btn btn-secondary btn-block" id="files-label">
+                        <span>Select Multiple Images</span>
+                        <input type="file" id="files-input" multiple accept="image/*" style="display: none;">
+                    </label>
+                </div>
+
+                <!-- Session Restore Option -->
+                <div id="restore-banner" class="restore-banner hidden">
+                    <p>💡 You have a saved session with rated images!</p>
+                    <p class="restore-details">Re-select the same folder/images above to resume.</p>
+                </div>
+
+                <div class="footer-info">
+                    <p>🔒 100% Client-Side. Images never upload to any server.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Swiper Screen -->
+        <section id="swiper-screen" class="screen">
+            <!-- Top Header -->
+            <header class="app-header">
+                <button id="btn-back" class="icon-btn" title="Back to menu">↩ Menu</button>
+                <div class="folder-name-container">
+                    <span id="active-folder-name" class="folder-name">No Folder</span>
+                </div>
+                <button id="btn-stats" class="icon-btn" title="View stats & export">📊 Stats</button>
+            </header>
+
+            <!-- Progress Tracker -->
+            <div class="progress-container">
+                <div class="progress-bar-bg">
+                    <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progress-counts">0 / 0 images sorted</span>
+                    <span id="progress-percent">(0%)</span>
+                </div>
+            </div>
+
+            <!-- Tinder Card Deck Viewport -->
+            <div class="deck-container">
+                <!-- Stacked Cards Container -->
+                <div id="card-deck" class="card-deck">
+                    <!-- Cards will be dynamically injected here by app.js -->
+                    <div class="card placeholder-card">
+                        <div class="spinner"></div>
+                        <p>Loading files...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Feedback Badges (Left/Right/Up indicator) -->
+            <div id="swipe-indicator-discard" class="swipe-badge badge-discard">DISCARD</div>
+            <div id="swipe-indicator-keep" class="swipe-badge badge-keep">KEEP</div>
+            <div id="swipe-indicator-pending" class="swipe-badge badge-pending">PENDING</div>
+
+            <!-- Bottom Swipe Action Buttons -->
+            <footer class="app-footer">
+                <button id="btn-action-undo" class="action-btn btn-undo disabled" title="Undo last action">
+                    <span class="icon">↺</span>
+                    <span class="label">Undo</span>
+                </button>
+                <button id="btn-action-discard" class="action-btn btn-discard" title="Discard (Swipe Left)">
+                    <span class="icon">❌</span>
+                    <span class="label">Discard</span>
+                </button>
+                <button id="btn-action-pending" class="action-btn btn-pending" title="Pending (Swipe Up)">
+                    <span class="icon">⏳</span>
+                    <span class="label">Pending</span>
+                </button>
+                <button id="btn-action-keep" class="action-btn btn-keep" title="Keep (Swipe Right)">
+                    <span class="icon">⭐</span>
+                    <span class="label">Keep</span>
+                </button>
+            </footer>
+        </section>
+
+        <!-- Stats & Export Panel Overlay -->
+        <div id="stats-overlay" class="overlay">
+            <div class="glass-card overlay-card">
+                <div class="overlay-header">
+                    <h2>Session Statistics</h2>
+                    <button id="btn-close-stats" class="close-btn">&times;</button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-val total-color" id="stat-total">0</span>
+                        <span class="stat-label">Total Loaded</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-val rated-color" id="stat-rated">0</span>
+                        <span class="stat-label">Rated</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-val keep-color" id="stat-keeps">0</span>
+                        <span class="stat-label">Keeps (Right)</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-val discard-color" id="stat-discards">0</span>
+                        <span class="stat-label">Discards (Left)</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-val pending-color" id="stat-pendings">0</span>
+                        <span class="stat-label">Pending (Up)</span>
+                    </div>
+                </div>
+
+                <div class="export-actions">
+                    <h3>Export Results</h3>
+                    <p class="export-desc">Download a mapping file of your rankings to apply to your directories.</p>
+                    
+                    <div class="export-buttons">
+                        <button id="btn-export-json" class="btn btn-primary">Download JSON</button>
+                        <button id="btn-export-csv" class="btn btn-primary">Download CSV</button>
+                        <button id="btn-share-results" class="btn btn-secondary">Share Results...</button>
+                    </div>
+                </div>
+
+                <div class="overlay-actions">
+                    <button id="btn-reset-session" class="btn btn-danger">Reset Session Progress</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zoom & Inspection View Overlay -->
+        <div id="zoom-overlay" class="zoom-overlay">
+            <div class="zoom-header">
+                <span id="zoom-image-name" class="zoom-image-name">Image Name</span>
+                <span id="zoom-image-details" class="zoom-image-details">Size & Dimensions</span>
+                <button id="btn-close-zoom" class="close-zoom-btn">Done</button>
+            </div>
+            
+            <div id="zoom-viewport" class="zoom-viewport">
+                <!-- The image/video is loaded here and supports touch translation + scaling -->
+                <img id="zoom-image" src="" alt="Zoomed view">
+                <video id="zoom-video" src="" class="hidden" autoplay loop muted playsinline></video>
+            </div>
+
+            <div class="zoom-instructions">
+                <span>pinch or drag to explore • double tap to reset zoom</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
