@@ -68,6 +68,15 @@ Since the app is 100% client-side, you do not need a running PC backend to use i
 2. **GitHub Pages:** Commit the folder to a GitHub repository and enable GitHub Pages under settings.
 3. Access the secure HTTPS URL on your phone, click "Add to Home Screen", and run the app offline anywhere.
 
+### ⚡ Server Mode (Proposed Optimization for Large Datasets)
+When loading very large datasets (e.g., 1,300+ high-resolution files totaling 5GB+), the standard browser folder input (`webkitdirectory`) may cause mobile browsers to lag, freeze, or crash because it attempts to hold all image payloads in memory. Additionally, streaming multiple 4MB+ raw files over Wi-Fi causes visual stutter.
+
+To resolve this, there is a drafted **Server Mode Optimization Plan** (see conversation [29b621ea-4930-45bd-9ab8-b5004c1c06b8](file:///C:/Users/khach/.gemini/antigravity/brain/29b621ea-4930-45bd-9ab8-b5004c1c06b8/implementation_plan.md)):
+* **Shifting Operations to the PC Backend:** The running Python server on the PC will handle metadata scanning, directory traversal, and saving configurations.
+* **On-Demand PIL Thumbnails:** The backend will automatically resize and cache low-weight preview thumbnails (~50KB, 800px width) using `Pillow (PIL)`. The frontend loads these fast previews for the Tinder deck, falling back to full-resolution images only when the user opens the Zoom Inspect modal.
+* **Instant API Handshake:** A new `/api/folders` and `/api/files` endpoint will list local directories recursively in <100ms.
+* **Real-time Synchronization:** Ratings will be posted back immediately to `<folder>/image_rankings.json` and `.csv` on the PC in real-time, eliminating the need to manually export files at the end of a session.
+
 ---
 
 ## 🐍 Python Processing Scripts
