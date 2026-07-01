@@ -25,24 +25,48 @@ This repository contains a collection of scripts and applications designed to ma
 
 The [mobile-image-ranker/](file:///d:/Download/Gallery-dl/mobile-image-ranker) directory houses a Progressive Web App (PWA) that allows users to clean up and rank image datasets directly on their smartphones or PCs using swipe gestures (similar to Tinder).
 
+### 📐 Architectural & Privacy Model
+The Mobile Image Ranker is designed as a **100% Client-Side Progressive Web App (PWA)**:
+* **Zero Uploads:** Your images are loaded locally into the browser memory using the modern `webkitdirectory` API. They are never transmitted to any external server, ensuring complete privacy.
+* **Offline Capability:** Once the application files are cached, the PWA works completely offline with zero cell service or internet connection.
+* **Storage Footprint:** No server-side storage or database runs on the mobile device. Ratings and sorting state are cached locally in the browser's persistent storage.
+
+### ✨ Key Features
+* **Tinder-like Gestures:** Smooth touch drag physics with rotative offset translation:
+  - **Swipe Right:** Keep image.
+  - **Swipe Left:** Discard image.
+  - **Swipe Up:** Mark as Pending.
+* **Navigation & Correction:** Includes an **Undo** capability to retrieve the previous rated card if an accidental swipe occurs. Manual buttons are also provided if swiping gestures are not preferred.
+* **Smart Zoom & Inspection:** Tapping the active card opens a high-fidelity zoom modal. It supports pinch-to-zoom and double-tap zoom (2.5x magnification), and drag-to-pan touch mechanics to inspect fine image details before rating.
+* **Session Restore (Resume Engine):** Tracks rated items using a unique hash combination of `filename + file_size` stored in the browser's `localStorage`. If you close the app or refresh, you can reload the folder/files and instantly resume from the first unrated card.
+* **Multiple Export Formats:** Export the session ratings to JSON, CSV, or share the summary via the Web Share API.
+
 ### 🛠️ Key Components
-- [index.html](file:///d:/Download/Gallery-dl/mobile-image-ranker/index.html) - Structured with high-end glassmorphic UI elements and responsive viewports.
-- [index.css](file:///d:/Download/Gallery-dl/mobile-image-ranker/index.css) - Vanilla CSS with high-performance animations, fluid dark theme palette, and smooth transitions.
-- [app.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/app.js) - Manages app state, gesture controls, session restore (using LocalStorage), file import (via `webkitdirectory` folder loading), and exports.
-- [sw.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/sw.js) & [manifest.json](file:///d:/Download/Gallery-dl/mobile-image-ranker/manifest.json) - Service worker and web manifest enabling offline installation.
-- [serve.py](file:///d:/Download/Gallery-dl/mobile-image-ranker/serve.py) - Python script to serve the application locally and print Wi-Fi access links.
+* [index.html](file:///d:/Download/Gallery-dl/mobile-image-ranker/index.html) - Structure for the Welcome panel, Tinder card deck viewport, visual indicators (KEEP, DISCARD, PENDING), and the zoom/inspect overlays.
+* [index.css](file:///d:/Download/Gallery-dl/mobile-image-ranker/index.css) - Vanilla CSS establishing a responsive glassmorphic UI, card stack offsets, dragging animations, and fluid dark theme palettes.
+* [app.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/app.js) - Core engine driving touch physics, zoom/pan calculations, LocalStorage interactions, session tracking, and file exports.
+* [sw.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/sw.js) & [manifest.json](file:///d:/Download/Gallery-dl/mobile-image-ranker/manifest.json) - Service worker caching patterns and Web App Manifest defining home screen installation properties.
+* [serve.py](file:///d:/Download/Gallery-dl/mobile-image-ranker/serve.py) - Python simple HTTP server with custom CORS headers and zero-caching rules, outputting local network IP links for easy connection.
 
 ### 🚀 How to Run the Mobile Ranker
+
+#### Method A: PC-Hosted Server (Local Wi-Fi)
 1. Ensure your PC and mobile device are connected to the **same Wi-Fi network**.
-2. Open terminal and run:
+2. Open terminal in the repository root and run:
    ```bash
    python mobile-image-ranker/serve.py
    ```
-3. The terminal will print local IP URLs (e.g. `http://192.168.x.x:8000/index.html`). Open the URL on your mobile browser.
-4. **App Installation:** 
+3. The terminal will print local network URLs (e.g., `http://192.168.1.145:8000/index.html`). Open the URL on your phone's browser.
+4. **Install as App:**
    - **Android (Chrome):** Tap Chrome settings (3 dots) -> "Install App" or "Add to Home Screen".
    - **iOS (Safari):** Tap the Share button -> "Add to Home Screen".
-5. **Usage:** Choose "Select Folder" to load a local folder of images, and swipe **Right** to Keep, **Left** to Discard, and **Up** to mark as Pending. You can also view statistics and export results as JSON/CSV or share them.
+5. Load your files using **Select Folder** (via folder directory picker API) or **Select Multiple Images** and start swiping.
+
+#### Method B: Zero-PC Cloud Hosting (100% Free & Private)
+Since the app is 100% client-side, you do not need a running PC backend to use it. You can host it statically on the cloud:
+1. **Netlify Drop:** Drag and drop the [mobile-image-ranker/](file:///d:/Download/Gallery-dl/mobile-image-ranker) directory into [Netlify Drop](https://app.netlify.com/drop) to immediately host the app on a secure HTTPS domain.
+2. **GitHub Pages:** Commit the folder to a GitHub repository and enable GitHub Pages under settings.
+3. Access the secure HTTPS URL on your phone, click "Add to Home Screen", and run the app offline anywhere.
 
 ---
 
