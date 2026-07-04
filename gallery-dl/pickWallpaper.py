@@ -9,6 +9,7 @@ and uses AI to rank them based on a dark, aesthetic anime theme.
 
 import argparse
 import os
+import pickle
 import shutil
 import sys
 from pathlib import Path
@@ -108,10 +109,10 @@ def main():
     parser.add_argument("--laptop-height", type=int, default=1080)
     parser.add_argument("--top-k", type=int, default=10, help="Number of top wallpapers to output per device")
     parser.add_argument("--pos-prompts", type=str, 
-                        default="a dark moody aesthetic anime wallpaper,a high quality dark theme anime illustration,a dark minimalist anime background", 
+                        default="a high-quality dark theme anime illustration of a girl with pink hair,centered portrait of a pink-haired anime girl,a beautiful clean anime wallpaper", 
                         help="Comma-separated positive prompts for CLIP matching")
     parser.add_argument("--neg-prompts", type=str, 
-                        default="a bright blinding white background,a cluttered messy photo,a meme with large text,a low quality noisy blurry image", 
+                        default="bright white background,messy cluttered background,text,memes,empty background with no character,cropped out face,off-center cut", 
                         help="Comma-separated negative prompts for CLIP matching")
     args = parser.parse_args()
 
@@ -155,18 +156,116 @@ def main():
 
     files = images
 
+    # Load cache
+    cache_path = args.folder / "wallpaper_cache.pkl"
+    cache = {
+        "phone_width": args.phone_width,
+        "phone_height": args.phone_height,
+        "laptop_width": args.laptop_width,
+        "laptop_height": args.laptop_height,
+        "entries": {}
+    }
+
+    if cache_path.exists():
+        try:
+            with open(cache_path, "rb") as f:
+                loaded_cache = pickle.load(f)
+            # Verify if resolution settings match
+            if (loaded_cache.get("phone_width") == args.phone_width and
+                loaded_cache.get("phone_height") == args.phone_height and
+                loaded_cache.get("laptop_width") == args.laptop_width and
+                loaded_cache.get("laptop_height") == args.laptop_height):
+                cache = loaded_cache
+                console.print(f"[green]:white_check_mark: Loaded feature cache with {len(cache['entries'])} entries.[/green]")
+            else:
+                console.print("[yellow]:warning: Resolution settings changed. Ignoring old cache and rebuilding...[/yellow]")
+        except Exception as e:
+            console.print(f"[yellow]:warning: Could not load cache ({e}). Rebuilding...[/yellow]")
+
+    cached_entries = cache["entries"]
+    files_to_process = []
+
+    for file_path in files:
+        try:
+            mtime = os.path.getmtime(file_path)
+        except Exception:
+            mtime = 0.0
+            
+        rel_path = str(file_path.relative_to(args.folder))
+        
+        # Check if valid cached entry exists
+        if rel_path in cached_entries and cached_entries[rel_path].get("mtime") == mtime:
+            entry = cached_entries[rel_path]
+            if "phone" in entry and "laptop" in entry:
+                continue
+                
+        files_to_process.append((file_path, rel_path, mtime))
+
+    # Initialize CLIP Model
+    # Note: We must always load it to encode the user's text prompts (even if 0 images to process)
     console.print(f"\n[bold cyan]:rocket: Initializing CLIP Model on {device.upper()}...[/bold cyan]")
     model_name = "openai/clip-vit-base-patch32"
     processor = CLIPProcessor.from_pretrained(model_name)
     model = CLIPModel.from_pretrained(model_name, use_safetensors=True).to(device)
 
+    # Process new/modified images if any
+    if files_to_process:
+        console.print(f"[yellow]:mag: Processing {len(files_to_process)} new/modified image(s)...[/yellow]")
+        cache_dirty = False
+        
+        for idx, (file_path, rel_path, mtime) in enumerate(files_to_process):
+            img = load_image_safe(file_path)
+            if img is None:
+                continue
+                
+            phone_crops = get_crops(img, args.phone_width, args.phone_height)
+            laptop_crops = get_crops(img, args.laptop_width, args.laptop_height)
+            
+            with torch.no_grad():
+                # Phone
+                images_p = [c[1] for c in phone_crops]
+                names_p = [c[0] for c in phone_crops]
+                inputs_p = processor(images=images_p, return_tensors="pt", padding=True).to(device)
+                feats_p = model.get_image_features(**inputs_p)
+                feats_p = safe_extract(feats_p, model.visual_projection)
+                feats_p = feats_p / feats_p.norm(dim=-1, keepdim=True)
+                
+                # Laptop
+                images_l = [c[1] for c in laptop_crops]
+                names_l = [c[0] for c in laptop_crops]
+                inputs_l = processor(images=images_l, return_tensors="pt", padding=True).to(device)
+                feats_l = model.get_image_features(**inputs_l)
+                feats_l = safe_extract(feats_l, model.visual_projection)
+                feats_l = feats_l / feats_l.norm(dim=-1, keepdim=True)
+                
+            cached_entries[rel_path] = {
+                "mtime": mtime,
+                "phone": {
+                    "names": names_p,
+                    "features": feats_p.cpu()  # Save to CPU so it is picklable
+                },
+                "laptop": {
+                    "names": names_l,
+                    "features": feats_l.cpu()
+                }
+            }
+            cache_dirty = True
+            
+            if (idx + 1) % 50 == 0 or (idx + 1) == len(files_to_process):
+                console.print(f"  Processed {idx + 1}/{len(files_to_process)} images...")
+
+        if cache_dirty:
+            try:
+                with open(cache_path, "wb") as f:
+                    pickle.dump(cache, f)
+                console.print("[green]:white_check_mark: Saved updated feature cache to disk.[/green]")
+            except Exception as e:
+                console.print(f"[red]❌ Failed to save cache: {e}[/red]")
+
     positive_prompts = [p.strip() for p in args.pos_prompts.split(",") if p.strip()]
     negative_prompts = [p.strip() for p in args.neg_prompts.split(",") if p.strip()]
 
-    console.print(f"\n[bold]Found {len(files)} files — analyzing...[/bold]\n")
-
-    results_phone = []
-    results_laptop = []
+    console.print(f"\n[bold]Evaluating wallpapers...[/bold]")
 
     # Pre-compute text embeddings
     with torch.no_grad():
@@ -178,62 +277,42 @@ def main():
         pos_features = text_features[:num_pos]
         neg_features = text_features[num_pos:]
 
-    for i, file_path in enumerate(files):
-        img = load_image_safe(file_path)
-        if img is None:
+    results_phone = []
+    results_laptop = []
+
+    # Run ranking using cached features
+    for file_path in files:
+        rel_path = str(file_path.relative_to(args.folder))
+        if rel_path not in cached_entries:
             continue
-
-        # Evaluate for Phone
-        phone_crops = get_crops(img, args.phone_width, args.phone_height)
-        best_phone_score = -999.0
-        best_phone_crop = None
-        best_phone_crop_name = ""
-
-        # Evaluate for Laptop
-        laptop_crops = get_crops(img, args.laptop_width, args.laptop_height)
-        best_laptop_score = -999.0
-        best_laptop_crop = None
-        best_laptop_crop_name = ""
+            
+        entry = cached_entries[rel_path]
+        phone_names = entry["phone"]["names"]
+        phone_feats = entry["phone"]["features"].to(device)
+        laptop_names = entry["laptop"]["names"]
+        laptop_feats = entry["laptop"]["features"].to(device)
 
         with torch.no_grad():
-            for crops, device_name in [(phone_crops, "phone"), (laptop_crops, "laptop")]:
-                images = [c[1] for c in crops]
-                names = [c[0] for c in crops]
+            for features, names, device_name in [(phone_feats, phone_names, "phone"), (laptop_feats, laptop_names, "laptop")]:
+                sim_pos = features @ pos_features.T
+                sim_neg = features @ neg_features.T
                 
-                inputs = processor(images=images, return_tensors="pt", padding=True).to(device)
-                image_features = model.get_image_features(**inputs)
-                image_features = safe_extract(image_features, model.visual_projection)
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-
-                # Similarity = (image_features @ text_features.T)
-                sim_pos = image_features @ pos_features.T
-                sim_neg = image_features @ neg_features.T
-
-                # Score = max pos similarity - max neg similarity for each crop
                 max_pos = sim_pos.max(dim=-1).values
                 max_neg = sim_neg.max(dim=-1).values
                 scores = (max_pos - max_neg).cpu().numpy()
-
+                
                 best_idx = scores.argmax()
                 best_score = float(scores[best_idx])
+                best_crop_name = names[best_idx]
                 
                 if device_name == "phone":
-                    best_phone_score = best_score
-                    best_phone_crop = images[best_idx]
-                    best_phone_crop_name = names[best_idx]
+                    results_phone.append({
+                        "path": file_path, "score": best_score, "crop_type": best_crop_name
+                    })
                 else:
-                    best_laptop_score = best_score
-                    best_laptop_crop = images[best_idx]
-                    best_laptop_crop_name = names[best_idx]
-
-        results_phone.append({
-            "path": file_path, "score": best_phone_score, "crop_type": best_phone_crop_name
-        })
-        results_laptop.append({
-            "path": file_path, "score": best_laptop_score, "crop_type": best_laptop_crop_name
-        })
-
-        console.print(f"[{i+1}/{len(files)}] :mag: {file_path.name} | Phone: [cyan]{best_phone_score:.3f}[/cyan] ({best_phone_crop_name}) | Laptop: [cyan]{best_laptop_score:.3f}[/cyan] ({best_laptop_crop_name})")
+                    results_laptop.append({
+                        "path": file_path, "score": best_score, "crop_type": best_crop_name
+                    })
 
     # Sort results
     results_phone.sort(key=lambda x: x["score"], reverse=True)
@@ -277,3 +356,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

@@ -17,6 +17,8 @@ This repository contains a collection of scripts and applications designed to ma
 - [history.sqlite3](file:///d:/Download/Gallery-dl/history.sqlite3) - Database keeping track of downloaded files to prevent duplicates.
 - [requirements.txt](file:///d:/Download/Gallery-dl/requirements.txt) - Python package dependencies.
 - [gallery-dl/](file:///d:/Download/Gallery-dl/gallery-dl) - Python utilities for vector extraction, similarity clustering, manual curation, non-image removal, and wallpaper ranking.
+  - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py) - Web-based dashboard for interactive wallpaper ranking, native directory browsing, and crop alignment overrides.
+  - [wallpaper-ui/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper-ui) - Glassmorphic dark HTML/CSS/JS frontend files for the wallpaper ranking app.
 - [mobile-image-ranker/](file:///d:/Download/Gallery-dl/mobile-image-ranker) - Mobile-friendly Progressive Web App (PWA) to visually rank images.
 
 ---
@@ -79,6 +81,26 @@ To resolve this, there is a drafted **Server Mode Optimization Plan** (see conve
 
 ---
 
+## 🖥️ Interactive Wallpaper Ranker Web Dashboard
+
+For desktop and curation tasks, we provide a zero-dependency HTML5 local Web Dashboard running on a native Python HTTP server.
+
+### ✨ Dashboard Features
+* **Minimalist UI Layout**: Prompts (Positive & Negative) and Directory paths are visible by default. Secondary settings (Top-K caps, crop resolutions, output folders) are tucked behind a collapsible **"Advanced Settings..."** details block.
+* **Clean Subprocess Directory Selector**: Clicking the "Browse..." button launches a native Windows OS folder explorer window (using PowerShell's `.NET FolderBrowserDialog`) to select folders directly and avoid COM multithreading apartment threading conflicts with PyTorch/CUDA.
+* **Live Progress Tracking & Diagnostics**: Employs a background processing worker that updates a sleek progress bar, CUDA/GPU hardware models, caching hits/misses, and file count progress in real-time.
+* **On-The-Fly Crop Overrides**: Previews crops (Left/Center/Right for phones or Top/Middle/Bottom for laptops) on a paginated grid. You can toggle alignment buttons to instantly update and customize the crop boundaries.
+* **Aspect-Ratio Mismatch Protection**: Resolves double-cropping by mapping custom target aspect-ratios inline to the preview wrappers, matching what the CLIP vision encoder reads.
+
+### 🚀 How to Run the Dashboard
+Run the Python HTTP server script in the repository:
+```bash
+python gallery-dl/pickWallpaper_ui.py
+```
+Open your browser and navigate to: **`http://localhost:8000`**
+
+---
+
 ## 🐍 Python Processing Scripts
 
 All post-processing Python utilities are located in [gallery-dl/](file:///d:/Download/Gallery-dl/gallery-dl):
@@ -101,11 +123,14 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
 - **[clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py)**
   Loads the embeddings from `image_data.pkl` and runs the DBSCAN clustering algorithm using cosine distance. It organizes matching duplicates/similar files into batch folders (e.g., `batch_0`, `batch_1`) and routes unclustered files to an `outliers` directory.
 
+### 4. Zero-Shot Wallpaper Ranking
 - **[pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py)**
   An automated wallpaper selection and cropping script powered by **Zero-Shot CLIP AI Classification**:
   - Evaluates how well an image fits positive theme prompts (e.g. dark aesthetic, anime style) vs. negative prompts (e.g. blinding white screens, text memes, clutter).
   - Uses a **Smart Sliding Cropper** that generates target aspect-ratio crops (e.g. Left/Center/Right for phone, Top/Middle/Bottom for laptop) and scores each crop individually.
   - Automatically crops and saves the top $K$ winning images directly to [wallpaper_winners/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper_winners) under `phone/` and `laptop/` subfolders.
+- **[pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py)**
+  HTTP backend serving the interactive Web Dashboard, with background multithreaded processing, live state reporting, PowerShell directory browsers, and crop previews.
 - **[pickWallpaper_legacy.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_legacy.py)**
   The original heuristic-based wallpaper scoring script, preserved as a fallback if PyTorch or HuggingFace transformers are not installed on the system.
 

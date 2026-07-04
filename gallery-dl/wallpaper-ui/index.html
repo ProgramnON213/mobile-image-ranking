@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallpaper AI Ranker</title>
+    <link rel="stylesheet" href="/index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <main class="container">
+        <header class="app-header">
+            <h1 class="glow-text">Wallpaper AI Ranker</h1>
+            <p class="subtitle">Zero-Shot CLIP Classification & Custom Smart Cropping</p>
+        </header>
+
+        <!-- Configuration Dashboard -->
+        <section class="card config-card">
+            <div class="input-group">
+                <label for="folder-path">Images Folder Path</label>
+                <div class="folder-input-row">
+                    <input type="text" id="folder-path" placeholder="e.g. D:/Download/Gallery-dl/gallery-dl/danbooru/remielle_dan" value="">
+                    <button id="btn-browse" class="btn btn-secondary btn-sm">Browse...</button>
+                </div>
+                <div class="folder-status-badge" id="folder-status">Folder not loaded</div>
+            </div>
+
+            <div class="prompts-row">
+                <div class="input-group flex-1">
+                    <label for="pos-prompts">Positive Prompt (Theme description)</label>
+                    <textarea id="pos-prompts" placeholder="Describe the aesthetic you want (comma-separated)...">a high-quality dark theme anime illustration of a girl with pink hair, centered portrait of a pink-haired anime girl, a beautiful clean anime wallpaper</textarea>
+                </div>
+                <div class="input-group flex-1">
+                    <label for="neg-prompts">Negative Prompt (Veto features)</label>
+                    <textarea id="neg-prompts" placeholder="Describe things you want to avoid (comma-separated)...">bright white background, messy cluttered background, text, memes, empty background with no character, cropped out face, off-center cut</textarea>
+                </div>
+            </div>
+
+            <!-- Collapsible Advanced Settings -->
+            <details class="advanced-details">
+                <summary class="advanced-summary">Advanced Settings...</summary>
+                <div class="advanced-content grid-col-2">
+                    <div class="input-group">
+                        <label for="phone-width">Phone Target Width</label>
+                        <input type="number" id="phone-width" value="1080">
+                    </div>
+                    <div class="input-group">
+                        <label for="phone-height">Phone Target Height</label>
+                        <input type="number" id="phone-height" value="2460">
+                    </div>
+                    <div class="input-group">
+                        <label for="laptop-width">Laptop Target Width</label>
+                        <input type="number" id="laptop-width" value="1920">
+                    </div>
+                    <div class="input-group">
+                        <label for="laptop-height">Laptop Target Height</label>
+                        <input type="number" id="laptop-height" value="1080">
+                    </div>
+                    <div class="input-group">
+                        <label for="top-k">Winners Limit (Top K)</label>
+                        <input type="number" id="top-k" value="10">
+                    </div>
+                    <div class="input-group">
+                        <label for="output-path">Save Winners Folder</label>
+                        <input type="text" id="output-path" value="./wallpaper_winners">
+                    </div>
+                </div>
+            </details>
+
+            <button id="btn-analyze" class="btn btn-primary">Start Analysis</button>
+        </section>
+
+        <!-- Progress Indicator -->
+        <section class="loading-overlay hidden" id="loading-area">
+            <div class="spinner"></div>
+            
+            <div class="progress-info-card">
+                <h3 id="progress-main-title">Initializing processing...</h3>
+                
+                <div class="status-stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">GPU Acceleration</div>
+                        <div class="stat-val" id="progress-gpu-status">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Cache Status</div>
+                        <div class="stat-val" id="progress-cache-status">-</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Files Audited</div>
+                        <div class="stat-val" id="progress-files-status">-</div>
+                    </div>
+                </div>
+
+                <div class="progress-track">
+                    <div class="progress-bar" id="progress-fill"></div>
+                </div>
+                <div class="progress-metrics">
+                    <span id="progress-msg">Waiting for server...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Area -->
+        <section class="results-section hidden" id="results-area">
+            <div class="results-header">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="phone">Phone Wallpapers</button>
+                    <button class="tab-btn" data-tab="laptop">Laptop Wallpapers</button>
+                </div>
+                <div class="pagination-info" id="pagination-summary">
+                    Showing 0 - 0 of 0 results
+                </div>
+            </div>
+
+            <!-- Wallpaper Preview Grid -->
+            <div class="grid-previews" id="previews-grid"></div>
+
+            <!-- Footer Action Controls -->
+            <div class="controls-footer">
+                <div class="pagination-controls" id="pagination-buttons">
+                    <button class="btn btn-secondary btn-sm" id="btn-prev">Previous</button>
+                    <span id="page-num">Page 1</span>
+                    <button class="btn btn-secondary btn-sm" id="btn-next">Next</button>
+                </div>
+                <button id="btn-save" class="btn btn-success">Save Selected Wallpapers (<span id="select-count">0</span>)</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>
