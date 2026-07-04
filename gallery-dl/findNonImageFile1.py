@@ -68,9 +68,15 @@ def create_lnk_shortcuts(source_directory, destination_directory):
     print(f"Shortcuts created: {shortcut_count}")
     print(f"Images skipped: {skipped_count}")
 
-# --- CONFIGURATION ---
-SOURCE_DIR = r"danbooru/remielle_dan"
-DEST_DIR = r"danbooru/remielle_dan_non_img_link"
+# --- CONFIGURATION DEFAULTS ---
+SOURCE_DIR_DEFAULT = r"danbooru/remielle_dan"
+DEST_DIR_DEFAULT = r"danbooru/remielle_dan_non_img_link"
 
 if __name__ == "__main__":
-    create_lnk_shortcuts(SOURCE_DIR, DEST_DIR)
+    import argparse
+    parser = argparse.ArgumentParser(description="Create Windows .lnk shortcuts for non-image files.")
+    parser.add_argument("--source", "-s", default=SOURCE_DIR_DEFAULT, help=f"Source directory (default: '{SOURCE_DIR_DEFAULT}')")
+    parser.add_argument("--dest", "-d", default=DEST_DIR_DEFAULT, help=f"Destination directory (default: '{DEST_DIR_DEFAULT}')")
+    args = parser.parse_args()
+
+    create_lnk_shortcuts(args.source, args.dest)

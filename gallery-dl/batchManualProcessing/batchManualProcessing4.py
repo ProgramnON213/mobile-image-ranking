@@ -143,8 +143,9 @@ class ImageBatchCleaner:
     def format_size(self, size_in_bytes):
         return f"{size_in_bytes / 1024:.1f} KB" if size_in_bytes < 1024 * 1024 else f"{size_in_bytes / (1024 * 1024):.2f} MB"
 
-    def load_directory(self):
-        folder_path = filedialog.askdirectory()
+    def load_directory(self, folder_path=None):
+        if not folder_path:
+            folder_path = filedialog.askdirectory()
         if not folder_path: return
 
         self.lbl_path.config(text=folder_path)
@@ -247,6 +248,13 @@ class ImageBatchCleaner:
             self.on_batch_select(None)
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Batch Image Cleaner")
+    parser.add_argument("--folder", "-f", help="Initial folder to scan")
+    args = parser.parse_args()
+
     root = tk.Tk()
     app = ImageBatchCleaner(root)
+    if args.folder:
+        app.load_directory(args.folder)
     root.mainloop()

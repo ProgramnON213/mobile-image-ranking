@@ -1,0 +1,6 @@
+[build]
+  # The directory containing the static PWA files (index.html, index.css, app.js, etc.)
+  publish = "mobile-image-ranker"
+
+  # No build command is needed since it's a static site without a build step
+  command = ""

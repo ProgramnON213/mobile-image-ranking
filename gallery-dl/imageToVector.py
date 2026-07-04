@@ -5,11 +5,11 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_i
 from tensorflow.keras.preprocessing import image
 from sklearn.preprocessing import normalize
 
-# --- Configuration ---
-INPUT_DIR = 'danbooru/remielle_dan'
-OUTPUT_DATA_FILE = 'image_data.pkl'
+# --- Configuration Defaults ---
+INPUT_DIR_DEFAULT = 'danbooru/remielle_dan'
+OUTPUT_DATA_FILE_DEFAULT = 'image_data.pkl'
 
-def extract_features():
+def extract_features(input_dir, output_data_file):
     print("Loading pre-trained MobileNetV2 model...")
     # include_top=False removes the final classification layer, leaving the raw embedding vectors
     # pooling='avg' collapses the spatial dimensions into a single 1D vector per image
@@ -20,13 +20,13 @@ def extract_features():
     
     valid_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
     
-    print(f"Scanning '{INPUT_DIR}' for images...")
-    for filename in os.listdir(INPUT_DIR):
+    print(f"Scanning '{input_dir}' for images...")
+    for filename in os.listdir(input_dir):
         ext = os.path.splitext(filename)[1].lower()
         if ext not in valid_extensions:
             continue
             
-        filepath = os.path.join(INPUT_DIR, filename)
+        filepath = os.path.join(input_dir, filename)
         
         try:
             # MobileNetV2 requires images to be exactly 224x224 pixels
@@ -54,13 +54,19 @@ def extract_features():
     feature_vectors = np.array(feature_list)
     normalized_vectors = normalize(feature_vectors)
 
-    print(f"Saving data to {OUTPUT_DATA_FILE}...")
-    with open(OUTPUT_DATA_FILE, 'wb') as f:
+    print(f"Saving data to {output_data_file}...")
+    with open(output_data_file, 'wb') as f:
         pickle.dump({'filenames': filenames, 'vectors': normalized_vectors}, f)
         
     print("Extraction complete! You can now run the clustering script.")
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description="Extract feature vectors from images using MobileNetV2.")
+    parser.add_argument("--input-dir", "-i", default=INPUT_DIR_DEFAULT, help=f"Input directory of images (default: '{INPUT_DIR_DEFAULT}')")
+    parser.add_argument("--output-file", "-o", default=OUTPUT_DATA_FILE_DEFAULT, help=f"Output data file (default: '{OUTPUT_DATA_FILE_DEFAULT}')")
+    args = parser.parse_args()
+
     # Ensure input directory exists
-    os.makedirs(INPUT_DIR, exist_ok=True)
-    extract_features()
+    os.makedirs(args.input_dir, exist_ok=True)
+    extract_features(args.input_dir, args.output_file)

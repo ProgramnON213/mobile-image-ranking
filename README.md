@@ -101,20 +101,82 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
 - **[clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py)**
   Loads the embeddings from `image_data.pkl` and runs the DBSCAN clustering algorithm using cosine distance. It organizes matching duplicates/similar files into batch folders (e.g., `batch_0`, `batch_1`) and routes unclustered files to an `outliers` directory.
 
-### 4. Wallpaper Curation & Ranking
 - **[pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py)**
-  An automated curation script that scores images and video frames based on:
-  - Resolution (higher is better)
-  - Aspect ratio similarity to target screens (Phone: 1080×2460, Laptop: 1920×1080)
-  - Image properties: sharpness, composition, vibrancy, and brightness.
-  
-  It outputs a ranked table in the console and copies the best-scoring wallpapers to [wallpaper_winners/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper_winners).
+  An automated wallpaper selection and cropping script powered by **Zero-Shot CLIP AI Classification**:
+  - Evaluates how well an image fits positive theme prompts (e.g. dark aesthetic, anime style) vs. negative prompts (e.g. blinding white screens, text memes, clutter).
+  - Uses a **Smart Sliding Cropper** that generates target aspect-ratio crops (e.g. Left/Center/Right for phone, Top/Middle/Bottom for laptop) and scores each crop individually.
+  - Automatically crops and saves the top $K$ winning images directly to [wallpaper_winners/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper_winners) under `phone/` and `laptop/` subfolders.
+- **[pickWallpaper_legacy.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_legacy.py)**
+  The original heuristic-based wallpaper scoring script, preserved as a fallback if PyTorch or HuggingFace transformers are not installed on the system.
 
 ### 5. Desktop Curation GUI
 - **[batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py)**
   A Python Tkinter desktop application ("Batch Image Cleaner") allowing manual review of clustered image batches. Includes smartphone-like mouse interactions (drag-to-pan, scroll-to-zoom) for detailed inspections.
 - **[batchManualProcessing/](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing)**
   Holds older, legacy versions of the manual curation GUI.
+
+---
+
+## 🔄 End-to-End Image Filtering & Processing Pipeline
+
+The image curation workflow combines deep learning feature extraction, clustering, manual rating (both desktop and mobile), automatic ranking, and automated file purging. Below is the step-by-step pipeline process and instructions for running each phase.
+
+### 1. Ingestion
+Download your image dataset using `gallery-dl` or locate your image files.
+Ensure non-image files are sorted out if necessary by using:
+```bash
+python gallery-dl/findNonImageFile.py <source_folder> <target_folder>
+```
+
+### 2. Feature Extraction (AI Embeddings)
+Extract 1D feature vectors using the pre-trained `MobileNetV2` model. This helps the system understand the visual content of the images:
+```bash
+python gallery-dl/imageToVector1.py <source_folder> --output gallery-dl/image_data.pkl
+```
+*(Note: [imageToVector1.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector1.py) skips previously processed images if an existing `.pkl` is found.)*
+
+### 3. Similarity Clustering (DBSCAN)
+Group visually similar images (burst shots, duplicates, similar poses) using DBSCAN with a cosine distance threshold:
+```bash
+python gallery-dl/clusterAndRouteFile.py <source_folder> --pkl gallery-dl/image_data.pkl --eps 0.15 --min-samples 2
+```
+*   `--eps`: Cosine distance epsilon threshold (smaller = stricter similarity).
+*   This organizes files into subfolders like `batch_0`, `batch_1`, etc., and routes unclustered files to `outliers`.
+
+### 4. Human Curation & Rating
+Review the grouped batches and rate them. You have two options:
+
+#### Option A: Mobile-Friendly Web App (Swipe-to-Rank)
+Start the local server:
+```bash
+python mobile-image-ranker/serve.py --port 8000
+```
+*   Access the printed URL (e.g. `http://<your-ip>:8000/index.html`) on your smartphone or PC browser.
+*   Select the target folder of images, swipe through the cards (Right = Keep, Left = Discard, Up = Pending), and export your ratings as a JSON file (e.g., `image_rankings.json`).
+
+#### Option B: Desktop Tkinter GUI
+Inspect and sort batches directly on your PC:
+```bash
+python gallery-dl/batchManualProcessing6.py <folder_path>
+```
+
+### 5. Automated Wallpaper Ranking
+Rank and crop the kept images based on zero-shot similarity matching using a CLIP AI model:
+```bash
+python gallery-dl/pickWallpaper.py <folder_path> --output ./wallpaper_winners --phone-width 1080 --phone-height 2460 --laptop-width 1920 --laptop-height 1080 --top-k 10 --pos-prompts "a dark moody aesthetic anime wallpaper, focused on an anime character, portrait of an anime character" --neg-prompts "bright background, empty background, no character, just scenery"
+```
+*   `--pos-prompts`: Comma-separated list of positive text attributes to rank for.
+*   `--neg-prompts`: Comma-separated list of negative text attributes to penalize.
+*   `--top-k`: Number of top wallpapers to output for each category (default: 10).
+This performs system checks (including GPU availability and file counts), ranks cropped image variations, and outputs the top $K$ crops into `wallpaper_winners/phone` and `wallpaper_winners/laptop`.
+
+### 6. Purging Discarded Images
+Permanently delete images marked as `"discard"` in your exported JSON file to clean up disk space:
+```bash
+python delete_discarded.py --json <path_to_json> --root <root_image_directory>
+```
+*   Add `--yes` to skip prompts.
+*   Add `--cli` to bypass the Tkinter visual preview screen if you prefer a console-only execution.
 
 ---
 

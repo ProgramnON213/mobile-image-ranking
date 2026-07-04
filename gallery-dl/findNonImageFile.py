@@ -50,10 +50,15 @@ def copy_non_images(source_directory, destination_directory):
     print(f"Images skipped: {skipped_count}")
 
 
-# --- CONFIGURATION ---
-# Replace these paths with your actual folder paths
-SOURCE_DIR = r"danbooru/remielle_dan"
-DEST_DIR = r"danbooru/remielle_dan_after_manual"
+# --- CONFIGURATION DEFAULTS ---
+SOURCE_DIR_DEFAULT = r"danbooru/remielle_dan"
+DEST_DIR_DEFAULT = r"danbooru/remielle_dan_for_ranking"
 
 if __name__ == "__main__":
-    copy_non_images(SOURCE_DIR, DEST_DIR)
+    import argparse
+    parser = argparse.ArgumentParser(description="Copy non-image files from source to destination.")
+    parser.add_argument("--source", "-s", default=SOURCE_DIR_DEFAULT, help=f"Source directory (default: '{SOURCE_DIR_DEFAULT}')")
+    parser.add_argument("--dest", "-d", default=DEST_DIR_DEFAULT, help=f"Destination directory (default: '{DEST_DIR_DEFAULT}')")
+    args = parser.parse_args()
+
+    copy_non_images(args.source, args.dest)

@@ -5,18 +5,18 @@ from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_i
 from tensorflow.keras.preprocessing import image
 from sklearn.preprocessing import normalize
 
-# --- Configuration ---
-INPUT_DIR = 'danbooru/remielle_dan'
-OUTPUT_DATA_FILE = 'image_data.pkl'
+# --- Configuration Defaults ---
+INPUT_DIR_DEFAULT = 'danbooru/remielle_dan'
+OUTPUT_DATA_FILE_DEFAULT = 'image_data.pkl'
 
-def extract_features_incrementally():
+def extract_features_incrementally(input_dir, output_data_file):
     existing_filenames = []
     existing_vectors = []
     
     # 1. Load existing memory if it exists
-    if os.path.exists(OUTPUT_DATA_FILE):
-        print(f"Loading existing data from {OUTPUT_DATA_FILE}...")
-        with open(OUTPUT_DATA_FILE, 'rb') as f:
+    if os.path.exists(output_data_file):
+        print(f"Loading existing data from {output_data_file}...")
+        with open(output_data_file, 'rb') as f:
             data = pickle.load(f)
             existing_filenames = data['filenames']
             existing_vectors = data['vectors']
@@ -29,8 +29,8 @@ def extract_features_incrementally():
     new_features = []
     valid_extensions = {'.jpg', '.jpeg', '.png', '.webp'}
     
-    print(f"Scanning '{INPUT_DIR}' for new images...")
-    for filename in os.listdir(INPUT_DIR):
+    print(f"Scanning '{input_dir}' for new images...")
+    for filename in os.listdir(input_dir):
         ext = os.path.splitext(filename)[1].lower()
         if ext not in valid_extensions:
             continue
@@ -39,7 +39,7 @@ def extract_features_incrementally():
         if filename in existing_filenames:
             continue
             
-        filepath = os.path.join(INPUT_DIR, filename)
+        filepath = os.path.join(input_dir, filename)
         
         try:
             img = image.load_img(filepath, target_size=(224, 224))
@@ -72,12 +72,18 @@ def extract_features_incrementally():
         final_filenames = new_filenames
         final_vectors = new_normalized_vectors
 
-    print(f"Saving {len(final_filenames)} total vectors to {OUTPUT_DATA_FILE}...")
-    with open(OUTPUT_DATA_FILE, 'wb') as f:
+    print(f"Saving {len(final_filenames)} total vectors to {output_data_file}...")
+    with open(output_data_file, 'wb') as f:
         pickle.dump({'filenames': final_filenames, 'vectors': final_vectors}, f)
         
     print("Incremental update complete!")
 
 if __name__ == '__main__':
-    os.makedirs(INPUT_DIR, exist_ok=True)
-    extract_features_incrementally()
+    import argparse
+    parser = argparse.ArgumentParser(description="Incrementally extract feature vectors from images using MobileNetV2.")
+    parser.add_argument("--input-dir", "-i", default=INPUT_DIR_DEFAULT, help=f"Input directory of images (default: '{INPUT_DIR_DEFAULT}')")
+    parser.add_argument("--output-file", "-o", default=OUTPUT_DATA_FILE_DEFAULT, help=f"Output data file (default: '{OUTPUT_DATA_FILE_DEFAULT}')")
+    args = parser.parse_args()
+
+    os.makedirs(args.input_dir, exist_ok=True)
+    extract_features_incrementally(args.input_dir, args.output_file)

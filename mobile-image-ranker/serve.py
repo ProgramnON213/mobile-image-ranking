@@ -5,7 +5,7 @@ import socketserver
 import os
 import sys
 
-PORT = 8000
+PORT_DEFAULT = 8000
 
 def get_local_ips():
     """Retrieves all local IPv4 addresses on this machine."""
@@ -42,7 +42,7 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Expires', '0')
         super().end_headers()
 
-def start_server():
+def start_server(port=PORT_DEFAULT):
     # Change working directory to this file's folder to serve correct files
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
@@ -55,9 +55,9 @@ def start_server():
     print("2. Open one of the following links in your phone's browser:\n")
     
     for ip in local_ips:
-        print(f"    👉  http://{ip}:{PORT}/index.html")
+        print(f"    👉  http://{ip}:{port}/index.html")
     
-    print(f"\n   (On your PC, you can view it at: http://localhost:{PORT}/index.html)")
+    print(f"\n   (On your PC, you can view it at: http://localhost:{port}/index.html)")
     print("\n3. If you want to install it as an App on your phone:")
     print("   - On Android: Tap Chrome settings (3 dots) -> 'Install App' or 'Add to Home Screen'")
     print("   - On iOS (Safari): Tap the Share button -> 'Add to Home Screen'")
@@ -68,7 +68,7 @@ def start_server():
     # Bind to '' (0.0.0.0) so it's accessible across the network
     socketserver.TCPServer.allow_reuse_address = True
     try:
-        with socketserver.TCPServer(("", PORT), CustomHTTPRequestHandler) as httpd:
+        with socketserver.TCPServer(("", port), CustomHTTPRequestHandler) as httpd:
             httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nStopping server. Goodbye!")
@@ -78,4 +78,8 @@ def start_server():
         sys.exit(1)
 
 if __name__ == "__main__":
-    start_server()
+    import argparse
+    parser = argparse.ArgumentParser(description="Mobile Image Ranker Server")
+    parser.add_argument("--port", "-p", type=int, default=PORT_DEFAULT, help="Port to serve the app on (default: 8000)")
+    args = parser.parse_args()
+    start_server(args.port)

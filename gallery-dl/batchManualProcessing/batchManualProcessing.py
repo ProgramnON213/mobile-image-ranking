@@ -58,9 +58,10 @@ class ImageBatchCleaner:
 
         self.batches = {} # Dictionary mapping folder names to their full system path
 
-    def load_directory(self):
+    def load_directory(self, folder_path=None):
         """Prompts the user to select a root folder and finds all subfolders with images."""
-        folder_path = filedialog.askdirectory()
+        if not folder_path:
+            folder_path = filedialog.askdirectory()
         if not folder_path:
             return
 
@@ -156,6 +157,13 @@ class ImageBatchCleaner:
             messagebox.showinfo("Success", f"{deleted_count} images removed.")
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Batch Image Cleaner")
+    parser.add_argument("--folder", "-f", help="Initial folder to scan")
+    args = parser.parse_args()
+
     root = tk.Tk()
     app = ImageBatchCleaner(root)
+    if args.folder:
+        app.load_directory(args.folder)
     root.mainloop()

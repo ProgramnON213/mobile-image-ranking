@@ -56,8 +56,9 @@ class ImageBatchCleaner:
         tk.Button(bottom_frame, text="Delete Selected", bg="#ff4c4c", fg="white", 
                   font=("Arial", 10, "bold"), command=self.delete_images).pack(side=tk.RIGHT)
 
-    def load_directory(self):
-        folder_path = filedialog.askdirectory()
+    def load_directory(self, folder_path=None):
+        if not folder_path:
+            folder_path = filedialog.askdirectory()
         if not folder_path:
             return
 
@@ -175,6 +176,13 @@ class ImageBatchCleaner:
             messagebox.showinfo("Success", f"{deleted_count} images removed.")
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Batch Image Cleaner")
+    parser.add_argument("--folder", "-f", help="Initial folder to scan")
+    args = parser.parse_args()
+
     root = tk.Tk()
     app = ImageBatchCleaner(root)
+    if args.folder:
+        app.load_directory(args.folder)
     root.mainloop()
