@@ -16,6 +16,7 @@ This repository contains a collection of scripts and applications designed to ma
 - [gallery-dl.exe](file:///d:/Download/Gallery-dl/gallery-dl.exe) - The gallery-dl executable.
 - [history.sqlite3](file:///d:/Download/Gallery-dl/history.sqlite3) - Database keeping track of downloaded files to prevent duplicates.
 - [requirements.txt](file:///d:/Download/Gallery-dl/requirements.txt) - Python package dependencies.
+- [delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py) - Script to delete files in Directory A that share filenames with files in Directory B.
 - [gallery-dl/](file:///d:/Download/Gallery-dl/gallery-dl) - Python utilities for vector extraction, similarity clustering, manual curation, non-image removal, and wallpaper ranking.
   - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py) - Web-based dashboard for interactive wallpaper ranking, native directory browsing, and crop alignment overrides.
   - [wallpaper-ui/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper-ui) - Glassmorphic dark HTML/CSS/JS frontend files for the wallpaper ranking app.
@@ -139,6 +140,10 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
   A Python Tkinter desktop application ("Batch Image Cleaner") allowing manual review of clustered image batches. Includes smartphone-like mouse interactions (drag-to-pan, scroll-to-zoom) for detailed inspections.
 - **[batchManualProcessing/](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing)**
   Holds older, legacy versions of the manual curation GUI.
+
+### 6. Synchronizing & Deleting by Reference Filename
+- **[delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py)**
+  A standalone Python utility that compares files in target Directory A against reference Directory B. If any file in A shares a filename (case-insensitively) with a file in B, it is marked for deletion. The script provides a dry-run statistics preview showing total size to free, lists matched files, and prompts the user for `y/N` confirmation before executing. Outputs are formatted with plain ASCII keywords for complete Windows Command Prompt compatibility.
 
 ---
 
