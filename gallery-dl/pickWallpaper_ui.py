@@ -488,20 +488,40 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_json({"error": "No selections received"}, status=400)
             return
 
-        out_path = Path(output_dir_str)
+        workspace_root = Path(__file__).parent.parent.resolve()
+        out_path = Path(output_dir_str).resolve()
+        
+        # Prevent path traversal by constraining output folder inside the workspace
+        try:
+            out_path.relative_to(workspace_root)
+        except ValueError:
+            out_path = workspace_root / "gallery-dl" / "wallpaper_winners"
+
         out_path.mkdir(parents=True, exist_ok=True)
         
         success_count = 0
         
         for item in selections:
-            img_path = Path(item["path"])
-            device_type = item["device"]
-            crop_type = item["crop_type"]
-            w = int(item["w"])
-            h = int(item["h"])
-            index = int(item["index"])
+            try:
+                img_path = Path(item["path"]).resolve()
+                device_type = item["device"]
+                crop_type = item["crop_type"]
+                w = int(item["w"])
+                h = int(item["h"])
+                index = int(item["index"])
+            except (ValueError, KeyError, TypeError):
+                # Skip invalid selection items gracefully
+                continue
 
-            if not img_path.exists():
+            # Ensure device_type and crop_type are safe directory names
+            if device_type not in ("phone", "laptop"):
+                continue
+            if crop_type not in ("left", "center", "right", "top", "bottom"):
+                continue
+            if w <= 0 or h <= 0 or index < 0:
+                continue
+
+            if not img_path.exists() or not img_path.is_file():
                 continue
 
             device_folder = out_path / device_type

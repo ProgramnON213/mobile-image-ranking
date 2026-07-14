@@ -264,13 +264,15 @@ function renderCards() {
         }
         imgUrl = fileItem.objectUrl;
 
-        // Fetch image/video dimensions asynchronously if not cached
-        if (fileItem.dimensions === 'Loading...') {
+        // Fetch image/video dimensions asynchronously if not cached and not already loading
+        if (fileItem.dimensions === 'Loading...' && !fileItem.isDimensionLoading) {
+            fileItem.isDimensionLoading = true;
             if (fileItem.isVideo) {
                 const tempVid = document.createElement('video');
                 tempVid.onloadedmetadata = function() {
                     fileItem.dimensions = `${this.videoWidth}×${this.videoHeight}`;
-                    const dimEl = card.querySelector('.dim-val');
+                    fileItem.isDimensionLoading = false;
+                    const dimEl = document.querySelector(`.card[data-key="${fileItem.key}"] .dim-val`);
                     if (dimEl) dimEl.textContent = fileItem.dimensions;
                     if (zoomOverlay.classList.contains('active') && zoomVideo.src === imgUrl) {
                         zoomImgDetails.textContent = `${fileItem.formattedSize} • ${fileItem.dimensions}`;
@@ -281,7 +283,8 @@ function renderCards() {
                 const tempImg = new Image();
                 tempImg.onload = function() {
                     fileItem.dimensions = `${this.width}×${this.height}`;
-                    const dimEl = card.querySelector('.dim-val');
+                    fileItem.isDimensionLoading = false;
+                    const dimEl = document.querySelector(`.card[data-key="${fileItem.key}"] .dim-val`);
                     if (dimEl) dimEl.textContent = fileItem.dimensions;
                     if (zoomOverlay.classList.contains('active') && zoomImage.src === imgUrl) {
                         zoomImgDetails.textContent = `${fileItem.formattedSize} • ${fileItem.dimensions}`;
@@ -290,6 +293,7 @@ function renderCards() {
                 tempImg.src = imgUrl;
             }
         }
+
 
         let mediaHTML = '';
         if (fileItem.isVideo) {

@@ -24,12 +24,12 @@ def format_size(size_in_bytes):
     else:
         return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
 
-def find_file(root_dir, file_path_str):
+def find_file(root_dir, file_path_str, dir_map=None):
     """
     Attempts to locate the file in root_dir using several fallback strategies:
     1. Direct match with path in JSON.
     2. Match with basename in root_dir.
-    3. Recursive search for basename in root_dir.
+    3. Recursive search for basename in root_dir (optimized with dir_map).
     """
     file_path_str = file_path_str.replace('\\', '/')
     basename = os.path.basename(file_path_str)
@@ -39,15 +39,21 @@ def find_file(root_dir, file_path_str):
     if os.path.isfile(candidate1):
         return candidate1
 
-    # Strategy 2: Basename direct join
-    candidate2 = os.path.join(root_dir, basename)
-    if os.path.isfile(candidate2):
-        return candidate2
+    # Strategy 2 & 3: Basename map lookup or fallback search
+    if dir_map is not None:
+        basename_lower = basename.lower()
+        if basename_lower in dir_map:
+            return dir_map[basename_lower]
+    else:
+        # Fallback to direct check in root_dir (Strategy 2)
+        candidate2 = os.path.join(root_dir, basename)
+        if os.path.isfile(candidate2):
+            return candidate2
 
-    # Strategy 3: Recursive search for basename
-    for dirpath, _, filenames in os.walk(root_dir):
-        if basename in filenames:
-            return os.path.join(dirpath, basename)
+        # Fallback to recursive search (Strategy 3)
+        for dirpath, _, filenames in os.walk(root_dir):
+            if basename in filenames:
+                return os.path.join(dirpath, basename)
 
     return None
 
@@ -494,6 +500,14 @@ def main():
 
     print(f"\nScanning '{root_dir}' for {len(discards)} discard images...")
 
+    # Build a directory map recursively to avoid O(N * M) os.walk bottleneck
+    dir_map = {}
+    for dirpath, _, filenames in os.walk(root_dir):
+        for f in filenames:
+            f_lower = f.lower()
+            if f_lower not in dir_map:
+                dir_map[f_lower] = os.path.join(dirpath, f)
+
     # 5. Find files on disk
     to_delete = []
     missing = []
@@ -501,7 +515,7 @@ def main():
 
     for item in discards:
         rel_path = item['file']
-        found_path = find_file(root_dir, rel_path)
+        found_path = find_file(root_dir, rel_path, dir_map)
         
         if found_path:
             try:
