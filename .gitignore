@@ -1,8 +1,18 @@
 # Ignore large datasets
 gallery-dl/danbooru/
+gallery-dl/twitter/
+gallery-dl/instagram/
+
+# Virtual environments
+.venv/
+venv/
+env/
 
 # Ignore large generated model files and database tracks
 gallery-dl/image_data.pkl
+gallery-dl/image_data.npz
+*.npz
+gallery-dl/image_rankings*.json
 history.sqlite3
 
 # Ignore binary executables

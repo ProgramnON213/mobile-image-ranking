@@ -53,5 +53,5 @@ The new system adopts a **local web-powered architecture**:
 - No extra pip packages required (operates with standard library and existing Pillow installation).
 - Deletions are recoverable by default via the Windows Recycle Bin.
 - Smooth, responsive 60–144Hz UX on any screen resolution.
-- `batchManualProcessing6.py` is preserved in the repository as a legacy fallback.
+- `batchManualProcessing6.py` and obsolete Tkinter prototypes have been retired and deleted.
 - Documented in `.agents/AGENTS.md` and `README.md`.

@@ -114,17 +114,13 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
 
 ### 2. Filtering Non-Images
 - **[findNonImageFile.py](file:///d:/Download/Gallery-dl/gallery-dl/findNonImageFile.py)**
-  Scans a folder recursively and moves all non-image files to a target directory (preserving directory hierarchy).
-- **[findNonImageFile1.py](file:///d:/Download/Gallery-dl/gallery-dl/findNonImageFile1.py)**
-  Instead of copying/moving, this version creates Windows `.lnk` shortcuts to the non-image files in the target directory, preserving folder structure. (Requires `pywin32`).
+  Scans a folder recursively and moves all non-image files to a target directory (preserving directory hierarchy). Includes infinite recursion safeguards and an optional `--shortcut` (`-l`) flag to create Windows `.lnk` shortcuts instead of copying files. See [ADR-0003](file:///d:/Download/Gallery-dl/docs/decisions/0003-file-management-and-deletion-safety.md).
 
 ### 3. Clustering Similar Images (DBSCAN)
 - **[imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py)**
-  Uses the pre-trained `MobileNetV2` deep learning model to extract 1D feature embeddings for all images in the input directory. Outputs normalized vectors to [image_data.pkl](file:///d:/Download/Gallery-dl/gallery-dl/image_data.pkl).
-- **[imageToVector1.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector1.py)**
-  An incremental upgrade to the feature extraction script. It loads existing data from `image_data.pkl` first and skips previously processed images to save time.
+  Uses the pre-trained `MobileNetV2` deep learning model via PyTorch to extract 1280-dimensional feature embeddings for all images in the input directory. Supports GPU acceleration, batched inference, incremental scanning (skipping previously processed files), and safe compressed `.npz` serialization with backwards-compatible `.pkl` fallback. See [ADR-0002](file:///d:/Download/Gallery-dl/docs/decisions/0002-standardize-on-pytorch-and-retire-tensorflow.md).
 - **[clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py)**
-  Loads the embeddings from `image_data.pkl` and runs the DBSCAN clustering algorithm using cosine distance. It organizes matching duplicates/similar files into batch folders (e.g., `batch_0`, `batch_1`) and routes unclustered files to an `outliers` directory.
+  Loads the embeddings from `image_data.npz` (or `image_data.pkl`) and runs the DBSCAN clustering algorithm using cosine distance. It organizes matching duplicates/similar files into batch folders (e.g., `batch_0`, `batch_1`) and routes unclustered files to an `outliers` directory. Includes in-place overwrite protection.
 
 ### 4. Zero-Shot Wallpaper Ranking
 - **[pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py)**
@@ -133,21 +129,15 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
   - Uses a **Smart Sliding Cropper** that generates target aspect-ratio crops (e.g. Left/Center/Right for phone, Top/Middle/Bottom for laptop) and scores each crop individually.
   - Automatically crops and saves the top $K$ winning images directly to [wallpaper_winners/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper_winners) under `phone/` and `laptop/` subfolders.
 - **[pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py)**
-  HTTP backend serving the interactive Web Dashboard, with background multithreaded processing, live state reporting, PowerShell directory browsers, and crop previews.
-- **[pickWallpaper_legacy.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_legacy.py)**
-  The original heuristic-based wallpaper scoring script, preserved as a fallback if PyTorch or HuggingFace transformers are not installed on the system.
+  HTTP backend serving the interactive Web Dashboard, with background multithreaded processing, dynamic port collision detection, live state reporting, PowerShell directory browsers, and crop previews.
 
 ### 5. Desktop Curation GUI
-- **[batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py)** *(Recommended)*
+- **[batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py)**
   A modern, GPU-accelerated local desktop web application with 60–144Hz smooth scrolling, cursor-anchored zoom lightbox, album cycling shortcuts, selection presets (`Keep Best Res`, `Keep First`), and native Windows Recycle Bin integration. See [ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md).
-- **[batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py)** *(Legacy)*
-  Legacy Tkinter desktop application ("Batch Image Cleaner") allowing manual review of clustered image batches.
-- **[batchManualProcessing/](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing)**
-  Holds older, legacy versions of the manual curation GUI.
 
 ### 6. Synchronizing & Deleting by Reference Filename
 - **[delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py)**
-  A standalone Python utility that compares files in target Directory A against reference Directory B. If any file in A shares a filename (case-insensitively) with a file in B, it is marked for deletion. The script provides a dry-run statistics preview showing total size to free, lists matched files, and prompts the user for `y/N` confirmation before executing. Outputs are formatted with plain ASCII keywords for complete Windows Command Prompt compatibility.
+  A standalone Python utility that compares files in target Directory A against reference Directory B. To prevent accidental deletion of unrelated files that share generic names, files are only marked for deletion if both filename and exact byte size match. The script provides a dry-run statistics preview showing total size to free, lists matched files, and prompts the user for `y/N` confirmation before executing. Outputs are formatted with plain ASCII keywords for complete Windows Command Prompt compatibility. See [ADR-0003](file:///d:/Download/Gallery-dl/docs/decisions/0003-file-management-and-deletion-safety.md).
 
 ---
 
@@ -163,16 +153,16 @@ python gallery-dl/findNonImageFile.py <source_folder> <target_folder>
 ```
 
 ### 2. Feature Extraction (AI Embeddings)
-Extract 1D feature vectors using the pre-trained `MobileNetV2` model. This helps the system understand the visual content of the images:
+Extract 1D feature vectors using the pre-trained `MobileNetV2` model via PyTorch. This helps the system understand the visual content of the images:
 ```bash
-python gallery-dl/imageToVector1.py <source_folder> --output gallery-dl/image_data.pkl
+python gallery-dl/imageToVector.py <source_folder> --output-file gallery-dl/image_data.npz
 ```
-*(Note: [imageToVector1.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector1.py) skips previously processed images if an existing `.pkl` is found.)*
+*(Note: [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py) automatically skips previously processed images if an existing `.npz` or `.pkl` cache is found.)*
 
 ### 3. Similarity Clustering (DBSCAN)
 Group visually similar images (burst shots, duplicates, similar poses) using DBSCAN with a cosine distance threshold:
 ```bash
-python gallery-dl/clusterAndRouteFile.py <source_folder> --pkl gallery-dl/image_data.pkl --eps 0.15 --min-samples 2
+python gallery-dl/clusterAndRouteFile.py <source_folder> --data gallery-dl/image_data.npz --eps 0.15 --min-samples 2
 ```
 *   `--eps`: Cosine distance epsilon threshold (smaller = stricter similarity).
 *   This organizes files into subfolders like `batch_0`, `batch_1`, etc., and routes unclustered files to `outliers`.
@@ -193,7 +183,6 @@ Inspect, compare, and sort albums smoothly with GPU-accelerated previews and key
 ```bash
 python gallery-dl/batchManualProcessing7.py --folder <folder_path>
 ```
-*(Or use legacy Tkinter via `python gallery-dl/batchManualProcessing6.py <folder_path>`)*
 
 ### 5. Automated Wallpaper Ranking
 Rank and crop the kept images based on zero-shot similarity matching using a CLIP AI model:
@@ -220,5 +209,6 @@ python delete_discarded.py --json <path_to_json> --root <root_image_directory>
 When interacting with this repository, agents should adhere to the following principles:
 1. **Never read `gallery-dl/danbooru`:** Treat this path as blacklisted. 
 2. **Context Efficiency:** Do not attempt to process lists of thousands of image filenames unless explicitly requested.
-3. **Execution Safety:** When running scripts like `imageToVector.py`, be aware that TensorFlow might initialize GPU context and print standard log warnings; this is normal.
+3. **Execution Safety:** Deep learning tasks standardise on PyTorch (`torch`, `torchvision`, `transformers`). CUDA acceleration is automatically used if available; CPU fallback is supported.
 4. **Code References:** When editing or extending code in this repository, always create clickable file links using absolute URLs with the `file:///` scheme (e.g. `[app.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/app.js)`). Use forward slashes.
+5. **Architecture Decisions:** Consult `docs/decisions/` ([ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md), [ADR-0002](file:///d:/Download/Gallery-dl/docs/decisions/0002-standardize-on-pytorch-and-retire-tensorflow.md), [ADR-0003](file:///d:/Download/Gallery-dl/docs/decisions/0003-file-management-and-deletion-safety.md)) before introducing new dependencies or altering core architecture.

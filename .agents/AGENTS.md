@@ -33,13 +33,12 @@ A mobile-first Tinder-style swipe interface to quickly review and sort downloade
 - [sw.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/sw.js) & [manifest.json](file:///d:/Download/Gallery-dl/mobile-image-ranker/manifest.json): Offline configuration mapping assets, and PWA metadata.
 
 ### Gallery-dl Utilities & Wallpaper Processing (`gallery-dl/`)
-- [pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py): CLIP-based CLI ranker. Uses OpenAI CLIP model to rank images according to positive/negative prompts (e.g. aesthetic, dark theme) and crop aspect ratios for phone and laptop.
-- [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py): Web server hosting CLIP ranking and cropping tool, featuring powershell-based folder selection for Windows environments.
-- [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py): GPU-accelerated local desktop web app for rapid album inspection, selection presets, and safe deletion. Static frontend in `gallery-dl/batch-ui/`.
-- [batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py): Legacy Tkinter-based bulk image review tool.
-- [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py): Feature vector extractor using MobileNetV2. Saves embeddings to `image_data.pkl`.
+- [pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py): CLIP-based CLI ranker. Uses OpenAI CLIP model via PyTorch to rank images according to positive/negative prompts (e.g. aesthetic, dark theme) and crop aspect ratios for phone and laptop.
+- [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py): Web server hosting CLIP ranking and cropping tool, featuring dynamic port allocation and powershell-based folder selection for Windows environments.
+- [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py): GPU-accelerated local desktop web app for rapid album inspection, selection presets, and safe deletion. Static frontend in `gallery-dl/batch-ui/`. See ADR-0001.
+- [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py): Feature vector extractor using PyTorch MobileNetV2 with GPU acceleration, incremental scanning, and safe `.npz` storage. See ADR-0002.
 - [clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py): Groups images into clusters using DBSCAN and Cosine distance based on MobileNetV2 embeddings.
-- [findNonImageFile.py](file:///d:/Download/Gallery-dl/findNonImageFile.py): Script to isolate and copy non-image assets/text logs from downloaded folders.
+- [findNonImageFile.py](file:///d:/Download/Gallery-dl/findNonImageFile.py): Script to isolate non-image assets/text logs from downloaded folders with recursion safeguards and optional `.lnk` shortcut creation (`--shortcut`). See ADR-0003.
 
 ## Code Conventions
 
