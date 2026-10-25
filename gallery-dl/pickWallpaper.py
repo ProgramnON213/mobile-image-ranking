@@ -168,8 +168,7 @@ def main():
 
     if cache_path.exists():
         try:
-            with open(cache_path, "rb") as f:
-                loaded_cache = pickle.load(f)
+            loaded_cache = torch.load(cache_path, weights_only=True, map_location="cpu")
             # Verify if resolution settings match
             if (loaded_cache.get("phone_width") == args.phone_width and
                 loaded_cache.get("phone_height") == args.phone_height and
@@ -180,7 +179,7 @@ def main():
             else:
                 console.print("[yellow]:warning: Resolution settings changed. Ignoring old cache and rebuilding...[/yellow]")
         except Exception as e:
-            console.print(f"[yellow]:warning: Could not load cache ({e}). Rebuilding...[/yellow]")
+            console.print(f"[yellow]:warning: Could not safely load cache ({e}). Rebuilding...[/yellow]")
 
     cached_entries = cache["entries"]
     files_to_process = []
@@ -256,8 +255,7 @@ def main():
 
         if cache_dirty:
             try:
-                with open(cache_path, "wb") as f:
-                    pickle.dump(cache, f)
+                torch.save(cache, cache_path)
                 console.print("[green]:white_check_mark: Saved updated feature cache to disk.[/green]")
             except Exception as e:
                 console.print(f"[red]❌ Failed to save cache: {e}[/red]")

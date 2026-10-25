@@ -15,6 +15,8 @@ import subprocess
 import urllib.parse
 import http.server
 import socketserver
+import ctypes
+from ctypes import wintypes
 from pathlib import Path
 from PIL import Image
 
@@ -28,8 +30,62 @@ if sys.platform == 'win32':
     except Exception:
         pass
 
-# Global initial folder passed via CLI
+try:
+    sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
+    from utils import format_size as utils_format_size
+except Exception:
+    utils_format_size = None
+
+# Global initial folder passed via CLI or scanned dynamically
 INITIAL_FOLDER = None
+ACTIVE_ROOT_FOLDER = None
+
+def is_safe_subpath(target_path, root_dir):
+    """Verifies target_path strictly resolves inside root_dir (prevents traversal & CSRF)."""
+    if not target_path or not root_dir:
+        return False
+    try:
+        target = Path(target_path).resolve()
+        root = Path(root_dir).resolve()
+        return target.is_relative_to(root)
+    except Exception:
+        return False
+
+def send_to_recycle_bin(path_str):
+    """
+    Moves a file to Windows Recycle Bin using native Win32 shell API.
+    Zero PowerShell process spin-up, zero shell injection vulnerability.
+    """
+    if sys.platform != 'win32':
+        os.remove(path_str)
+        return True
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        _fields_ = [
+            ('hwnd', wintypes.HWND),
+            ('wFunc', wintypes.UINT),
+            ('pFrom', wintypes.LPCWSTR),
+            ('pTo', wintypes.LPCWSTR),
+            ('fFlags', wintypes.WORD),
+            ('fAnyOperationsAborted', wintypes.BOOL),
+            ('hNameMappings', wintypes.LPVOID),
+            ('lpszProgressTitle', wintypes.LPCWSTR)
+        ]
+
+    FO_DELETE = 3
+    FOF_ALLOWUNDO = 0x0040
+    FOF_NOCONFIRMATION = 0x0010
+    FOF_SILENT = 0x0004
+
+    # Double null-terminated string required by SHFileOperationW
+    p_from = os.path.abspath(path_str) + '\0\0'
+    fileop = SHFILEOPSTRUCTW()
+    fileop.wFunc = FO_DELETE
+    fileop.pFrom = p_from
+    fileop.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT
+
+    res = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(fileop))
+    return res == 0 and not os.path.exists(path_str)
 
 # Thread-safe Thumbnail In-Memory LRU Cache
 CACHE_LOCK = threading.Lock()
@@ -83,12 +139,19 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # Suppress routine GET logging for image thumbnails to keep terminal clean
-        if "/api/thumbnail" in args[0] or "/api/raw_image" in args[0]:
+        if args and isinstance(args[0], str) and ("/api/thumbnail" in args[0] or "/api/raw_image" in args[0]):
             return
         super().log_message(format, *args)
 
     def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # Strict loopback CORS: only allow localhost / 127.0.0.1
+        origin = self.headers.get('Origin', '')
+        if origin:
+            parsed_origin = urllib.parse.urlparse(origin)
+            hostname = parsed_origin.hostname or ''
+            if hostname in ('localhost', '127.0.0.1', '::1'):
+                self.send_header('Access-Control-Allow-Origin', origin)
+                self.send_header('Access-Control-Allow-Credentials', 'true')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -181,6 +244,7 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(500, f"Error reading file: {e}")
 
     def handle_select_folder(self):
+        global ACTIVE_ROOT_FOLDER
         try:
             ps_script = (
                 "Add-Type -AssemblyName System.Windows.Forms; "
@@ -195,11 +259,14 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
                 capture_output=True, text=True
             )
             folder_path = res.stdout.strip()
+            if folder_path and os.path.isdir(folder_path):
+                ACTIVE_ROOT_FOLDER = str(Path(folder_path).resolve())
             self.send_json({"folder": folder_path})
         except Exception as e:
             self.send_json({"error": f"Failed to open native picker: {e}"}, status=500)
 
     def handle_scan(self, query):
+        global ACTIVE_ROOT_FOLDER
         folder_str = query.get("folder", [""])[0]
         if not folder_str:
             self.send_json({"error": "No folder specified"}, status=400)
@@ -209,6 +276,8 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
         if not root_path.exists() or not root_path.is_dir():
             self.send_json({"error": f"Directory does not exist: {folder_str}"}, status=404)
             return
+
+        ACTIVE_ROOT_FOLDER = str(root_path.resolve())
 
         batches = []
         try:
@@ -238,6 +307,11 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
         folder_str = query.get("path", [""])[0]
         if not folder_str:
             self.send_json({"error": "No batch path specified"}, status=400)
+            return
+
+        allowed_root = ACTIVE_ROOT_FOLDER or INITIAL_FOLDER
+        if not is_safe_subpath(folder_str, allowed_root):
+            self.send_error(403, "Access denied: Batch folder outside active directory")
             return
 
         folder_path = Path(folder_str)
@@ -298,9 +372,10 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
     def handle_thumbnail(self, query):
         img_path = query.get("path", [""])[0]
         target_size = int(query.get("size", [400])[0])
+        allowed_root = ACTIVE_ROOT_FOLDER or INITIAL_FOLDER
 
-        if not img_path or not os.path.isfile(img_path):
-            self.send_error(404, "Image not found")
+        if not img_path or not os.path.isfile(img_path) or not is_safe_subpath(img_path, allowed_root):
+            self.send_error(403, "Access denied: Image outside active folder")
             return
 
         data, content_type = get_cached_thumbnail(img_path, target_size)
@@ -317,8 +392,9 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
 
     def handle_raw_image(self, query):
         img_path = query.get("path", [""])[0]
-        if not img_path or not os.path.isfile(img_path):
-            self.send_error(404, "Image not found")
+        allowed_root = ACTIVE_ROOT_FOLDER or INITIAL_FOLDER
+        if not img_path or not os.path.isfile(img_path) or not is_safe_subpath(img_path, allowed_root):
+            self.send_error(403, "Access denied: Image outside active folder")
             return
 
         ext = Path(img_path).suffix.lower()
@@ -353,6 +429,7 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
             paths = payload.get("paths", [])
             use_recycle = payload.get("recycle", True)
 
+            allowed_root = ACTIVE_ROOT_FOLDER or INITIAL_FOLDER
             deleted_count = 0
             errors = []
 
@@ -360,21 +437,14 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
                 if not os.path.exists(p):
                     continue
 
+                if not is_safe_subpath(p, allowed_root):
+                    errors.append(f"Forbidden: {os.path.basename(p)} is outside active folder.")
+                    continue
+
                 deleted_success = False
                 if use_recycle:
-                    # Windows Native Recycle Bin via PowerShell Microsoft.VisualBasic assembly
                     try:
-                        escaped_p = p.replace("'", "''")
-                        ps_cmd = (
-                            f"Add-Type -AssemblyName Microsoft.VisualBasic; "
-                            f"[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{escaped_p}', 'OnlyErrorDialogs', 'SendToRecycleBin')"
-                        )
-                        res = subprocess.run(
-                            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
-                            capture_output=True, text=True
-                        )
-                        if res.returncode == 0 and not os.path.exists(p):
-                            deleted_success = True
+                        deleted_success = send_to_recycle_bin(p)
                     except Exception as e:
                         errors.append(f"Recycle error for {os.path.basename(p)}: {e}")
 
@@ -402,17 +472,20 @@ class BatchProcessorHandler(http.server.BaseHTTPRequestHandler):
 
     def handle_open_in_explorer(self, query):
         target_path = query.get("path", [""])[0]
-        if target_path and os.path.exists(target_path):
+        allowed_root = ACTIVE_ROOT_FOLDER or INITIAL_FOLDER
+        if target_path and os.path.exists(target_path) and is_safe_subpath(target_path, allowed_root):
             try:
-                # Open Windows Explorer and select the specific file
-                subprocess.Popen(f'explorer /select,"{os.path.normpath(target_path)}"')
+                norm_p = os.path.normpath(target_path)
+                subprocess.Popen(["explorer.exe", f"/select,{norm_p}"])
                 self.send_json({"success": True})
             except Exception as e:
                 self.send_json({"error": str(e)}, status=500)
         else:
-            self.send_json({"error": "Path not found"}, status=404)
+            self.send_error(403, "Forbidden or path outside active directory")
 
     def format_size(self, size_bytes):
+        if utils_format_size is not None:
+            return utils_format_size(size_bytes)
         if size_bytes < 1024:
             return f"{size_bytes} B"
         elif size_bytes < 1024 * 1024:

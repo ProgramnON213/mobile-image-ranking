@@ -2,16 +2,19 @@
 import os
 import sys
 
-def format_size(size_in_bytes):
-    """Formats bytes into a human-readable string (KB, MB, GB)."""
-    if size_in_bytes < 1024:
-        return f"{size_in_bytes} Bytes"
-    elif size_in_bytes < 1024 * 1024:
-        return f"{size_in_bytes / 1024:.2f} KB"
-    elif size_in_bytes < 1024 * 1024 * 1024:
-        return f"{size_in_bytes / (1024 * 1024):.2f} MB"
-    else:
-        return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
+try:
+    from utils import format_size
+except ImportError:
+    def format_size(size_in_bytes):
+        """Formats bytes into a human-readable string (KB, MB, GB)."""
+        if size_in_bytes < 1024:
+            return f"{size_in_bytes} Bytes"
+        elif size_in_bytes < 1024 * 1024:
+            return f"{size_in_bytes / 1024:.2f} KB"
+        elif size_in_bytes < 1024 * 1024 * 1024:
+            return f"{size_in_bytes / (1024 * 1024):.2f} MB"
+        else:
+            return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 def main():
     print("=" * 60)
@@ -59,11 +62,11 @@ def main():
 
     # 3. Retrieve files from B (Reference)
     try:
-        files_b = set()
+        files_b = {}
         for f in os.listdir(abs_b):
             full_path = os.path.join(abs_b, f)
             if os.path.isfile(full_path):
-                files_b.add(f.lower())
+                files_b[f.lower()] = os.path.getsize(full_path)
     except Exception as e:
         print(f"Error reading Reference Directory B: {e}")
         sys.exit(1)
@@ -72,13 +75,19 @@ def main():
     try:
         all_files_a = []
         matches = []
+        skipped_size_mismatch = 0
         for f in os.listdir(abs_a):
             full_path = os.path.join(abs_a, f)
             if os.path.isfile(full_path):
                 all_files_a.append(f)
-                if f.lower() in files_b:
+                f_lower = f.lower()
+                if f_lower in files_b:
                     size = os.path.getsize(full_path)
-                    matches.append((f, full_path, size))
+                    # Verify file size matches reference file to prevent deleting unrelated files with common names
+                    if size == files_b[f_lower]:
+                        matches.append((f, full_path, size))
+                    else:
+                        skipped_size_mismatch += 1
     except Exception as e:
         print(f"Error reading Target Directory A: {e}")
         sys.exit(1)
@@ -91,7 +100,9 @@ def main():
     print(f"Scan Complete:")
     print(f"  - Files in target Directory A: {total_a}")
     print(f"  - Files in reference Directory B: {total_b}")
-    print(f"  - Duplicate filenames found to delete: {match_count}")
+    print(f"  - Duplicate files found to delete: {match_count}")
+    if skipped_size_mismatch > 0:
+        print(f"  - Same-name files with DIFFERENT size (safely kept): {skipped_size_mismatch}")
     print("-" * 60)
 
     if match_count == 0:

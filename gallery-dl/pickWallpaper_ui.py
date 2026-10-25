@@ -29,6 +29,34 @@ model_name = "openai/clip-vit-base-patch32"
 model = None
 processor = None
 
+ACTIVE_WALLPAPER_FOLDER = None
+
+def is_safe_subpath(target_path, root_dir):
+    """Verifies target_path strictly resolves inside root_dir (prevents traversal & CSRF)."""
+    if not target_path or not root_dir:
+        return False
+    try:
+        target = Path(target_path).resolve()
+        root = Path(root_dir).resolve()
+        return target.is_relative_to(root)
+    except Exception:
+        return False
+
+def load_safe_cache(cache_path: Path):
+    if not cache_path.exists():
+        return None
+    try:
+        return torch.load(cache_path, weights_only=True, map_location="cpu")
+    except Exception as e:
+        print(f"Warning: Could not safely load cache ({e}). Rebuilding...")
+        return None
+
+def save_safe_cache(cache_path: Path, cache_data: dict):
+    try:
+        torch.save(cache_data, cache_path)
+    except Exception as e:
+        print(f"Warning: Could not safely save cache ({e}).")
+
 # Global Progress State
 progress_lock = threading.Lock()
 progress_state = {
@@ -62,13 +90,23 @@ def lazy_load_clip():
         model = CLIPModel.from_pretrained(model_name, use_safetensors=True).to(device)
         print("CLIP model loaded successfully.")
 
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
 class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
     def end_headers(self):
         # Disable caching for active development
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        origin = self.headers.get('Origin', '')
+        if origin:
+            parsed_origin = urllib.parse.urlparse(origin)
+            hostname = parsed_origin.hostname or ''
+            if hostname in ('localhost', '127.0.0.1', '::1'):
+                self.send_header('Access-Control-Allow-Origin', origin)
+                self.send_header('Access-Control-Allow-Credentials', 'true')
         super().end_headers()
 
     def do_OPTIONS(self):
@@ -141,6 +179,7 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Endpoint Not Found")
 
     def handle_api_status(self, query):
+        global ACTIVE_WALLPAPER_FOLDER
         folder_str = query.get("folder", [""])[0]
         if not folder_str:
             self.send_json({"error": "No folder specified"}, status=400)
@@ -155,6 +194,8 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
                 "has_cache": False
             })
             return
+
+        ACTIVE_WALLPAPER_FOLDER = folder.resolve()
 
         VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"}
         img_count = 0
@@ -200,6 +241,9 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
                 capture_output=True, text=True
             )
             folder_path = result.stdout.strip()
+            if folder_path and os.path.isdir(folder_path):
+                global ACTIVE_WALLPAPER_FOLDER
+                ACTIVE_WALLPAPER_FOLDER = Path(folder_path).resolve()
             self.send_json({"folder": folder_path})
         except Exception as e:
             self.send_json({"error": f"Failed to open native explorer: {e}"}, status=500)
@@ -226,6 +270,10 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
         img_path = Path(img_path_str)
         if not img_path.exists() or not img_path.is_file():
             self.send_error(404, f"Image not found: {img_path_str}")
+            return
+
+        if ACTIVE_WALLPAPER_FOLDER and not is_safe_subpath(img_path, ACTIVE_WALLPAPER_FOLDER):
+            self.send_error(403, f"Access denied: Image outside active folder: {img_path_str}")
             return
 
         try:
@@ -287,6 +335,7 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_json({"status": "started"})
 
     def run_ranking_thread(self, data):
+        global ACTIVE_WALLPAPER_FOLDER
         try:
             folder_str = data.get("folder", "")
             pos_prompts_str = data.get("pos_prompts", "")
@@ -298,6 +347,9 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
             laptop_h = int(data.get("laptop_height", 1080))
 
             folder = Path(folder_str)
+            if folder.is_dir():
+                ACTIVE_WALLPAPER_FOLDER = folder.resolve()
+
             files = [p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXTS]
             if not files:
                 set_progress(status="error", error_msg="No supported images found in target folder.")
@@ -314,16 +366,14 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
             }
 
             if cache_path.exists():
-                try:
-                    with open(cache_path, "rb") as f:
-                        loaded_cache = pickle.load(f)
-                    if (loaded_cache.get("phone_width") == phone_w and
-                        loaded_cache.get("phone_height") == phone_h and
-                        loaded_cache.get("laptop_width") == laptop_w and
-                        loaded_cache.get("laptop_height") == laptop_h):
-                        cache = loaded_cache
-                except Exception:
-                    pass
+                loaded_cache = load_safe_cache(cache_path)
+                if loaded_cache and (
+                    loaded_cache.get("phone_width") == phone_w and
+                    loaded_cache.get("phone_height") == phone_h and
+                    loaded_cache.get("laptop_width") == laptop_w and
+                    loaded_cache.get("laptop_height") == laptop_h
+                ):
+                    cache = loaded_cache
 
             cached_entries = cache["entries"]
             files_to_process = []
@@ -393,11 +443,7 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
                     cache_dirty = True
 
                 if cache_dirty:
-                    try:
-                        with open(cache_path, "wb") as f:
-                            pickle.dump(cache, f)
-                    except Exception:
-                        pass
+                    save_safe_cache(cache_path, cache)
             else:
                 set_progress(cache_status="Cache hit: all vectors retrieved successfully.")
 
@@ -552,10 +598,24 @@ class WallpaperUIRequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
-def run():
-    socketserver.TCPServer.allow_reuse_address = True
-    print(f"Starting Wallpaper UI server at http://localhost:{PORT}")
-    with socketserver.TCPServer(("", PORT), WallpaperUIRequestHandler) as httpd:
+def find_free_port(start_port=8000, max_attempts=50):
+    import socket
+    for port in range(start_port, start_port + max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('localhost', port)) != 0:
+                return port
+    return start_port
+
+def run(port=None):
+    import argparse
+    parser = argparse.ArgumentParser(description="Wallpaper UI Server")
+    parser.add_argument("--port", "-p", type=int, default=None, help="Port to serve on (default: auto-detected from 8000)")
+    args, _ = parser.parse_known_args()
+
+    chosen_port = port or args.port or find_free_port(PORT)
+    ThreadingHTTPServer.allow_reuse_address = True
+    print(f"Starting Multi-Threaded Wallpaper UI server at http://localhost:{chosen_port}")
+    with ThreadingHTTPServer(("", chosen_port), WallpaperUIRequestHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

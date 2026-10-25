@@ -2,6 +2,14 @@
 import os
 import json
 import sys
+from pathlib import Path
+
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 # Optional GUI imports
 GUI_AVAILABLE = False
@@ -13,47 +21,82 @@ try:
 except ImportError:
     pass
 
-def format_size(size_in_bytes):
-    """Formats bytes into a human-readable string (KB, MB, GB)."""
-    if size_in_bytes < 1024:
-        return f"{size_in_bytes} Bytes"
-    elif size_in_bytes < 1024 * 1024:
-        return f"{size_in_bytes / 1024:.2f} KB"
-    elif size_in_bytes < 1024 * 1024 * 1024:
-        return f"{size_in_bytes / (1024 * 1024):.2f} MB"
-    else:
-        return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
+try:
+    from utils import format_size
+except ImportError:
+    def format_size(size_in_bytes):
+        """Formats bytes into a human-readable string (KB, MB, GB)."""
+        if size_in_bytes < 1024:
+            return f"{size_in_bytes} Bytes"
+        elif size_in_bytes < 1024 * 1024:
+            return f"{size_in_bytes / 1024:.2f} KB"
+        elif size_in_bytes < 1024 * 1024 * 1024:
+            return f"{size_in_bytes / (1024 * 1024):.2f} MB"
+        else:
+            return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
 
 def find_file(root_dir, file_path_str, dir_map=None):
     """
-    Attempts to locate the file in root_dir using several fallback strategies:
-    1. Direct match with path in JSON.
-    2. Match with basename in root_dir.
-    3. Recursive search for basename in root_dir (optimized with dir_map).
+    Locates the file in root_dir using safe fallback strategies:
+    1. Direct relative match within root_dir (with path traversal check).
+    2. Collision-aware basename lookup: skips automatic match if duplicates exist.
     """
+    if not root_dir or not file_path_str:
+        return None
+
     file_path_str = file_path_str.replace('\\', '/')
-    basename = os.path.basename(file_path_str)
+    root_path = Path(root_dir).resolve()
 
-    # Strategy 1: Direct join
-    candidate1 = os.path.join(root_dir, file_path_str)
-    if os.path.isfile(candidate1):
-        return candidate1
+    # Strategy 1: Direct join with strict containment verification
+    try:
+        candidate1 = (root_path / file_path_str.lstrip('/')).resolve()
+        if candidate1.is_relative_to(root_path) and candidate1.is_file():
+            return str(candidate1)
+    except Exception:
+        pass
 
-    # Strategy 2 & 3: Basename map lookup or fallback search
+    # Strategy 2: Basename map lookup with collision protection
+    basename_lower = os.path.basename(file_path_str).lower()
     if dir_map is not None:
-        basename_lower = basename.lower()
         if basename_lower in dir_map:
-            return dir_map[basename_lower]
-    else:
-        # Fallback to direct check in root_dir (Strategy 2)
-        candidate2 = os.path.join(root_dir, basename)
-        if os.path.isfile(candidate2):
-            return candidate2
+            matches = dir_map[basename_lower]
+            if isinstance(matches, list):
+                if len(matches) == 1:
+                    return matches[0]
 
-        # Fallback to recursive search (Strategy 3)
-        for dirpath, _, filenames in os.walk(root_dir):
-            if basename in filenames:
-                return os.path.join(dirpath, basename)
+                # Multiple files share this basename: check if relative suffix uniquely resolves to 1 match
+                norm_suffix = '/' + file_path_str.strip('/').replace('\\', '/')
+                suffix_matches = [m for m in matches if m.replace('\\', '/').endswith(norm_suffix)]
+                if len(suffix_matches) == 1:
+                    return suffix_matches[0]
+
+                print(f"[Warning] Ambiguous match skipped for '{file_path_str}': {len(matches)} files share this name.")
+                return None
+            else:
+                return matches
+    else:
+        # Fallback to direct check in root_dir
+        try:
+            candidate2 = (root_path / os.path.basename(file_path_str)).resolve()
+            if candidate2.is_relative_to(root_path) and candidate2.is_file():
+                return str(candidate2)
+        except Exception:
+            pass
+
+        # Fallback to recursive search with collision protection
+        matches = []
+        for dirpath, _, filenames in os.walk(str(root_path)):
+            if os.path.basename(file_path_str) in filenames:
+                matches.append(os.path.join(dirpath, os.path.basename(file_path_str)))
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1:
+            norm_suffix = '/' + file_path_str.strip('/').replace('\\', '/')
+            suffix_matches = [m for m in matches if m.replace('\\', '/').endswith(norm_suffix)]
+            if len(suffix_matches) == 1:
+                return suffix_matches[0]
+            print(f"[Warning] Ambiguous match skipped for '{file_path_str}': {len(matches)} files share this name.")
+            return None
 
     return None
 
@@ -505,8 +548,7 @@ def main():
     for dirpath, _, filenames in os.walk(root_dir):
         for f in filenames:
             f_lower = f.lower()
-            if f_lower not in dir_map:
-                dir_map[f_lower] = os.path.join(dirpath, f)
+            dir_map.setdefault(f_lower, []).append(os.path.join(dirpath, f))
 
     # 5. Find files on disk
     to_delete = []

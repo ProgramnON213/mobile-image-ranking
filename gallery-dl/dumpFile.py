@@ -22,6 +22,14 @@ def flat_copy(src: Path, dst: Path, overwrite: bool = False, verbose: bool = Fal
     Returns:
         (copied_count, renamed_count, skipped_count)
     """
+    src_res = src.resolve()
+    dst_res = dst.resolve()
+
+    if dst_res == src_res:
+        raise ValueError(f"Destination directory cannot be identical to source directory: '{src_res}'")
+
+    dst.mkdir(parents=True, exist_ok=True)
+
     copied = 0
     renamed = 0
     skipped = 0
@@ -29,6 +37,13 @@ def flat_copy(src: Path, dst: Path, overwrite: bool = False, verbose: bool = Fal
     for src_file in src.rglob("*"):
         if not src_file.is_file():
             continue
+
+        # Prevent infinite recursion if destination is inside source directory
+        try:
+            if src_file.resolve().is_relative_to(dst_res):
+                continue
+        except Exception:
+            pass
 
         dst_file = dst / src_file.name
 

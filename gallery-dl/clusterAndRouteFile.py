@@ -1,26 +1,47 @@
 import os
 import shutil
 import pickle
+import sys
+import numpy as np
 from sklearn.cluster import DBSCAN
 
 # --- Configuration Defaults ---
 INPUT_DIR_DEFAULT = 'danbooru/remielle_dan'
 OUTPUT_DIR_DEFAULT = 'danbooru/remielle_dan_output_batches'
-DATA_FILE_DEFAULT = 'image_data.pkl'
+DATA_FILE_DEFAULT = 'image_data.npz'
 EPS_DEFAULT = 0.15 
 MIN_SAMPLES_DEFAULT = 2
 
-def run_clustering(input_dir, output_dir, data_file, eps, min_samples):
+def load_embeddings(data_file):
+    """Safely loads image embeddings from .npz (preferred) or legacy .pkl."""
     if not os.path.exists(data_file):
-        print(f"Error: {data_file} not found. Run the extraction script first.")
-        return
+        # Try alternate extension if default not found
+        alt = data_file.replace('.npz', '.pkl') if data_file.endswith('.npz') else data_file.replace('.pkl', '.npz')
+        if os.path.exists(alt):
+            data_file = alt
+        else:
+            return None, None
 
+    if data_file.endswith('.npz'):
+        with np.load(data_file, allow_pickle=False) as data:
+            return list(data['filenames']), data['vectors']
+
+    # Legacy .pkl loading
+    try:
+        import torch
+        data = torch.load(data_file, weights_only=True, map_location="cpu")
+        return data['filenames'], data['vectors']
+    except Exception:
+        with open(data_file, 'rb') as f:
+            data = pickle.load(f)
+        return data['filenames'], data['vectors']
+
+def run_clustering(input_dir, output_dir, data_file, eps, min_samples):
     print("Loading image embeddings...")
-    with open(data_file, 'rb') as f:
-        data = pickle.load(f)
-        
-    filenames = data['filenames']
-    vectors = data['vectors']
+    filenames, vectors = load_embeddings(data_file)
+    if filenames is None or vectors is None:
+        print(f"Error: Embedding data file '{data_file}' not found. Run the extraction script first.")
+        return
 
     print(f"Running DBSCAN (eps={eps}, min_samples={min_samples})...")
     # Using 'cosine' metric because we normalized the vectors in the previous script
@@ -78,6 +99,12 @@ if __name__ == '__main__':
     parser.add_argument("--eps", "-e", type=float, default=EPS_DEFAULT, help=f"DBSCAN epsilon parameter (default: {EPS_DEFAULT})")
     parser.add_argument("--min-samples", "-m", type=int, default=MIN_SAMPLES_DEFAULT, help=f"DBSCAN min_samples parameter (default: {MIN_SAMPLES_DEFAULT})")
     args = parser.parse_args()
+
+    abs_input = os.path.abspath(args.input_dir)
+    abs_output = os.path.abspath(args.output_dir)
+    if abs_input == abs_output:
+        print(f"Error: Output directory cannot be the same as input directory: {abs_output}")
+        sys.exit(1)
 
     # It is usually best to clear out the old batch folders before a fresh run
     if os.path.exists(args.output_dir):
