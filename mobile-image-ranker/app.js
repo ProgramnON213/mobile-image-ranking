@@ -1,6 +1,23 @@
 // --------------------------------------------------
 // Application State
 // --------------------------------------------------
+const MEDIA_EXTENSIONS = new Set([
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 
+    'mp4', 'webm', 'ogg', 'mov', 'm4v'
+]);
+
+let persistTimer = null;
+function persistRatingsDebounced() {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+        try {
+            localStorage.setItem('ranker_ratings', JSON.stringify(ratings));
+        } catch (e) {
+            console.warn('[Storage] Quota exceeded or storage unavailable:', e);
+        }
+    }, 150);
+}
+
 let allFiles = [];      // Raw list of file objects
 let filterFiles = [];   // List of files to swipe (unrated, or restored session)
 let ratings = {};       // UniqueKey -> 'keep' | 'discard' | 'pending'
@@ -181,14 +198,12 @@ function handleFileSelection(fileList, isFolder) {
 
     // Process files asynchronously
     setTimeout(() => {
-        const mediaExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'mp4', 'webm', 'ogg', 'mov', 'm4v'];
-        
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
             const ext = file.name.split('.').pop().toLowerCase();
             const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'm4v'].includes(ext) || file.type.startsWith('video/');
             
-            if (mediaExtensions.includes(ext) || file.type.startsWith('image/') || isVideo) {
+            if (MEDIA_EXTENSIONS.has(ext) || file.type.startsWith('image/') || isVideo) {
                 // Generate a key using filename + size as a unique footprint
                 const relativePath = file.webkitRelativePath || file.name;
                 const fileKey = `${relativePath}_${file.size}`;
@@ -235,17 +250,18 @@ function renderCards() {
         return;
     }
 
-    // Aggressive Memory Management:
-    // Revoke object URLs for cards outside our active window to prevent mobile out-of-memory crashes.
-    // We keep a wider window (-10 to +5) to allow 10 historical "Undos" and 5 stacked visual cards.
-    filterFiles.forEach((fileItem, idx) => {
-        if (idx < currentIndex - 10 || idx > currentIndex + 5) {
-            if (fileItem.objectUrl) {
-                URL.revokeObjectURL(fileItem.objectUrl);
-                fileItem.objectUrl = null; // Mark for recreation if user undoes back to it
-            }
-        }
-    });
+    // Sliding Window Memory Management (O(1)):
+    // Only evict the items exiting the active window [-10, +5] to maintain O(1) performance
+    const evictLeft = currentIndex - 11;
+    if (evictLeft >= 0 && filterFiles[evictLeft]?.objectUrl) {
+        URL.revokeObjectURL(filterFiles[evictLeft].objectUrl);
+        filterFiles[evictLeft].objectUrl = null;
+    }
+    const evictRight = currentIndex + 6;
+    if (evictRight < filterFiles.length && filterFiles[evictRight]?.objectUrl) {
+        URL.revokeObjectURL(filterFiles[evictRight].objectUrl);
+        filterFiles[evictRight].objectUrl = null;
+    }
 
     // Render up to 5 cards for a deep visual stack
     const cardsToRender = filterFiles.slice(currentIndex, currentIndex + 5);
@@ -278,6 +294,12 @@ function renderCards() {
                         zoomImgDetails.textContent = `${fileItem.formattedSize} • ${fileItem.dimensions}`;
                     }
                 };
+                tempVid.onerror = function() {
+                    fileItem.dimensions = 'Unavailable';
+                    fileItem.isDimensionLoading = false;
+                    const dimEl = document.querySelector(`.card[data-key="${fileItem.key}"] .dim-val`);
+                    if (dimEl) dimEl.textContent = fileItem.dimensions;
+                };
                 tempVid.src = imgUrl;
             } else {
                 const tempImg = new Image();
@@ -289,6 +311,12 @@ function renderCards() {
                     if (zoomOverlay.classList.contains('active') && zoomImage.src === imgUrl) {
                         zoomImgDetails.textContent = `${fileItem.formattedSize} • ${fileItem.dimensions}`;
                     }
+                };
+                tempImg.onerror = function() {
+                    fileItem.dimensions = 'Unavailable';
+                    fileItem.isDimensionLoading = false;
+                    const dimEl = document.querySelector(`.card[data-key="${fileItem.key}"] .dim-val`);
+                    if (dimEl) dimEl.textContent = fileItem.dimensions;
                 };
                 tempImg.src = imgUrl;
             }
@@ -538,7 +566,7 @@ function animateButtonSwipe(rating) {
 // --------------------------------------------------
 function saveFileRating(key, rating) {
     ratings[key] = rating;
-    localStorage.setItem('ranker_ratings', JSON.stringify(ratings));
+    persistRatingsDebounced();
     
     // Add to session undo stack
     undoStack.push({ key: key, rating: rating });
@@ -549,7 +577,7 @@ function triggerUndo() {
     
     const lastRated = undoStack.pop();
     delete ratings[lastRated.key];
-    localStorage.setItem('ranker_ratings', JSON.stringify(ratings));
+    persistRatingsDebounced();
 
     // Rewind index
     currentIndex--;
@@ -808,7 +836,7 @@ function shareResults() {
     }
 
     const summaryText = `Ranks sorted: Total: ${allFiles.length} | Kept: ${statKeeps.textContent} | Discarded: ${statDiscards.textContent} | Pending: ${statPendings.textContent}`;
-    const csvContent = getRatingData().map(r => `${r.file},${r.rating}`).join('\n');
+    const csvContent = data.map(r => `"${r.file.replace(/"/g, '""')}","${r.rating}"`).join('\n');
     
     if (navigator.share) {
         navigator.share({
