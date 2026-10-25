@@ -13,6 +13,7 @@ This workspace combines `gallery-dl` (a robust image downloader) with `mobile-im
 - **Launch Frontend Server**: `python mobile-image-ranker/serve.py` (serves the PWA locally on port 8000 and prints local IP links for mobile debugging).
 - **Run Discard Processing GUI/CLI**: `python delete_discarded.py`
 - **Run Pick Wallpaper UI**: `python gallery-dl/pickWallpaper_ui.py`
+- **Run Batch Image Cleaner v7**: `python gallery-dl/batchManualProcessing7.py` (or `python gallery-dl/batchManualProcessing7.py --folder "<DIR>"`)
 - **Run Gallery-dl**: `gallery-dl --config gallery-dl.conf "<URL>"`
 
 ## Project Map
@@ -34,7 +35,8 @@ A mobile-first Tinder-style swipe interface to quickly review and sort downloade
 ### Gallery-dl Utilities & Wallpaper Processing (`gallery-dl/`)
 - [pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py): CLIP-based CLI ranker. Uses OpenAI CLIP model to rank images according to positive/negative prompts (e.g. aesthetic, dark theme) and crop aspect ratios for phone and laptop.
 - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py): Web server hosting CLIP ranking and cropping tool, featuring powershell-based folder selection for Windows environments.
-- [batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py): Tkinter-based bulk image review, selection, and deletion tool.
+- [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py): GPU-accelerated local desktop web app for rapid album inspection, selection presets, and safe deletion. Static frontend in `gallery-dl/batch-ui/`.
+- [batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py): Legacy Tkinter-based bulk image review tool.
 - [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py): Feature vector extractor using MobileNetV2. Saves embeddings to `image_data.pkl`.
 - [clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py): Groups images into clusters using DBSCAN and Cosine distance based on MobileNetV2 embeddings.
 - [findNonImageFile.py](file:///d:/Download/Gallery-dl/findNonImageFile.py): Script to isolate and copy non-image assets/text logs from downloaded folders.

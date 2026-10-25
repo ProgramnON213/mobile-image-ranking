@@ -18,6 +18,8 @@ This repository contains a collection of scripts and applications designed to ma
 - [requirements.txt](file:///d:/Download/Gallery-dl/requirements.txt) - Python package dependencies.
 - [delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py) - Script to delete files in Directory A that share filenames with files in Directory B.
 - [gallery-dl/](file:///d:/Download/Gallery-dl/gallery-dl) - Python utilities for vector extraction, similarity clustering, manual curation, non-image removal, and wallpaper ranking.
+  - [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py) - GPU-accelerated desktop web app for rapid album inspection, selection presets, and safe deletion.
+  - [batch-ui/](file:///d:/Download/Gallery-dl/gallery-dl/batch-ui) - Hardware-accelerated dark HTML/CSS/JS frontend for Batch Image Cleaner v7.
   - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py) - Web-based dashboard for interactive wallpaper ranking, native directory browsing, and crop alignment overrides.
   - [wallpaper-ui/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper-ui) - Glassmorphic dark HTML/CSS/JS frontend files for the wallpaper ranking app.
 - [mobile-image-ranker/](file:///d:/Download/Gallery-dl/mobile-image-ranker) - Mobile-friendly Progressive Web App (PWA) to visually rank images.
@@ -136,8 +138,10 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
   The original heuristic-based wallpaper scoring script, preserved as a fallback if PyTorch or HuggingFace transformers are not installed on the system.
 
 ### 5. Desktop Curation GUI
-- **[batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py)**
-  A Python Tkinter desktop application ("Batch Image Cleaner") allowing manual review of clustered image batches. Includes smartphone-like mouse interactions (drag-to-pan, scroll-to-zoom) for detailed inspections.
+- **[batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py)** *(Recommended)*
+  A modern, GPU-accelerated local desktop web application with 60–144Hz smooth scrolling, cursor-anchored zoom lightbox, album cycling shortcuts, selection presets (`Keep Best Res`, `Keep First`), and native Windows Recycle Bin integration. See [ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md).
+- **[batchManualProcessing6.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing6.py)** *(Legacy)*
+  Legacy Tkinter desktop application ("Batch Image Cleaner") allowing manual review of clustered image batches.
 - **[batchManualProcessing/](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing)**
   Holds older, legacy versions of the manual curation GUI.
 
@@ -184,11 +188,12 @@ python mobile-image-ranker/serve.py --port 8000
 *   Access the printed URL (e.g. `http://<your-ip>:8000/index.html`) on your smartphone or PC browser.
 *   Select the target folder of images, swipe through the cards (Right = Keep, Left = Discard, Up = Pending), and export your ratings as a JSON file (e.g., `image_rankings.json`).
 
-#### Option B: Desktop Tkinter GUI
-Inspect and sort batches directly on your PC:
+#### Option B: Desktop Batch Cleaner (v7 Pro)
+Inspect, compare, and sort albums smoothly with GPU-accelerated previews and keyboard navigation:
 ```bash
-python gallery-dl/batchManualProcessing6.py <folder_path>
+python gallery-dl/batchManualProcessing7.py --folder <folder_path>
 ```
+*(Or use legacy Tkinter via `python gallery-dl/batchManualProcessing6.py <folder_path>`)*
 
 ### 5. Automated Wallpaper Ranking
 Rank and crop the kept images based on zero-shot similarity matching using a CLIP AI model:

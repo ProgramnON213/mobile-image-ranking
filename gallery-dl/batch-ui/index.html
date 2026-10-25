@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Image Cleaner v7</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Header -->
+    <header class="top-nav">
+      <div class="nav-left">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+          </div>
+          <span class="brand-name">Batch Cleaner</span>
+          <span class="version-badge">v7 Pro</span>
+        </div>
+
+        <div class="folder-control">
+          <button id="btnBrowseFolder" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Select Folder</span>
+          </button>
+          <div id="currentFolderPath" class="folder-path-display" title="No folder selected">No folder selected</div>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <div class="stat-pill" id="globalStats">
+          <span id="batchCountBadge">0 folders</span>
+          <span class="divider">•</span>
+          <span id="imageCountBadge">0 images</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="main-layout">
+      <!-- Left Sidebar: Folder / Batch Browser -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="search-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="searchBatchesInput" placeholder="Filter folders..." autocomplete="off">
+            <button id="clearSearchBtn" class="clear-btn" style="display:none;">&times;</button>
+          </div>
+          <div class="sidebar-subbar">
+            <span class="subbar-title">Multi-Image Sets (&gt;1)</span>
+            <span id="filteredBatchCount" class="badge">0</span>
+          </div>
+        </div>
+
+        <div id="batchList" class="batch-list">
+          <div class="empty-state-sidebar">
+            <p>No directory loaded.<br>Click <strong>Select Folder</strong> to scan albums.</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center & Right Workspace: Batch Images Grid -->
+      <main class="content-area">
+        <!-- Action Toolbar for Selected Batch -->
+        <div class="action-bar" id="actionBar">
+          <div class="batch-meta">
+            <h2 id="activeBatchTitle" class="batch-title">No Folder Selected</h2>
+            <div id="activeBatchMeta" class="batch-subtitle">Select a folder on the left to review images</div>
+          </div>
+
+          <div class="batch-tools" id="batchTools" style="display:none;">
+            <!-- Selection Presets -->
+            <div class="btn-group">
+              <button class="btn btn-tool" id="btnSelectAll" title="Select All (Ctrl+A)">All</button>
+              <button class="btn btn-tool" id="btnSelectNone" title="Deselect All (Ctrl+D)">None</button>
+              <button class="btn btn-tool" id="btnInvert" title="Invert Selection (Ctrl+I)">Invert</button>
+              <button class="btn btn-tool" id="btnKeepHighestRes" title="Keep single highest resolution image and select all others for deletion">Keep Best Res</button>
+              <button class="btn btn-tool" id="btnKeepFirst" title="Keep the first image and select all others for deletion">Keep First</button>
+            </div>
+
+            <!-- Card Size Slider -->
+            <div class="slider-group" title="Adjust thumbnail size">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+              </svg>
+              <input type="range" id="gridZoomSlider" min="200" max="500" value="280" step="20">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="1"></rect>
+              </svg>
+            </div>
+
+            <!-- Delete Action Button -->
+            <button class="btn btn-danger" id="btnDeleteSelected" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span id="deleteBtnLabel">Delete Selected</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Image Cards Grid -->
+        <div id="gridContainer" class="grid-container">
+          <div class="welcome-card" id="welcomeCard">
+            <div class="welcome-icon">📂</div>
+            <h3>Ready to review images</h3>
+            <p>Click "Select Folder" above or run with <code>--folder "D:\Your\Path"</code></p>
+            <div class="shortcut-hints">
+              <div class="hint-item"><kbd>←</kbd> <kbd>→</kbd> Navigate Lightbox</div>
+              <div class="hint-item"><kbd>Space</kbd> Toggle Mark for Deletion</div>
+              <div class="hint-item"><kbd>Scroll</kbd> Cursor-Centric Smooth Zoom</div>
+              <div class="hint-item"><kbd>Del</kbd> Confirm Delete</div>
+              <div class="hint-item"><kbd>Esc</kbd> Exit Lightbox</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Fullscreen Modal Lightbox -->
+  <div id="lightbox" class="lightbox" style="display:none;">
+    <!-- Top Bar -->
+    <div class="lightbox-header">
+      <div class="lb-info">
+        <span id="lbIndexBadge" class="lb-counter">1 / 5</span>
+        <span id="lbFilename" class="lb-title">filename.jpg</span>
+        <span id="lbDimensions" class="tag">1920×1080</span>
+        <span id="lbFilesize" class="tag">2.4 MB</span>
+        <span id="lbZoomHUD" class="tag tag-hud">100%</span>
+      </div>
+
+      <div class="lb-actions">
+        <button id="lbToggleDeleteBtn" class="btn btn-delete-toggle">
+          <span class="status-indicator"></span>
+          <span id="lbDeleteBtnText">Mark for Deletion</span>
+          <kbd>Space</kbd>
+        </button>
+        <button id="lbOpenExplorerBtn" class="btn btn-secondary btn-icon" title="Reveal in File Explorer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+        <button id="lbCloseBtn" class="btn btn-secondary btn-icon" title="Close (Esc)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Viewer Canvas Area -->
+    <div class="lightbox-viewport" id="lbViewport">
+      <img id="lbImage" class="lightbox-img" src="" alt="Full view" draggable="false">
+    </div>
+
+    <!-- Floating Navigation Arrows -->
+    <button id="lbPrevBtn" class="lb-nav-btn lb-prev" title="Previous Image (Left Arrow)">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+    <button id="lbNextBtn" class="lb-nav-btn lb-next" title="Next Image (Right Arrow)">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="9 18 15 12 9 6"></polyline>
+      </svg>
+    </button>
+
+    <!-- Bottom Helper Note -->
+    <div class="lb-footer-tips">
+      <span>Mouse Wheel: Zoom to cursor</span> • 
+      <span>Drag: Pan</span> • 
+      <span>Double Click: Reset Zoom</span> • 
+      <span><kbd>←</kbd> <kbd>→</kbd> Prev / Next</span>
+    </div>
+  </div>
+
+  <!-- Deletion Confirmation Modal -->
+  <div id="deleteModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-icon danger-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </div>
+        <h3 id="deleteModalTitle">Confirm Deletion</h3>
+      </div>
+      <div class="modal-body">
+        <p id="deleteModalMessage">Are you sure you want to delete the selected images?</p>
+        <div id="deletePreviewThumbnails" class="delete-preview-strip"></div>
+        <div class="recycle-option">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="chkRecycleBin" checked>
+            <span class="checkmark"></span>
+            <span class="label-text">Send to Windows Recycle Bin (Safer, recoverable)</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelDelete" class="btn btn-secondary">Cancel</button>
+        <button id="btnConfirmDelete" class="btn btn-danger">Confirm Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
