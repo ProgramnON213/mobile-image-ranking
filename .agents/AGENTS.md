@@ -6,14 +6,24 @@ This workspace combines `gallery-dl` (a robust image downloader) with `mobile-im
 - **Frontend App**: Pure Vanilla HTML5, CSS3, and JavaScript (ES6+), built as an offline-first Progressive Web App (PWA) with a Service Worker.
 - **Styling**: Sleek dark mode design with modern typography (Outfit via Google Fonts), glassmorphism, responsive tinder-style swipe animations, and fluid transitions.
 - **Local Dev Server**: Python 3 http server (`mobile-image-ranker/serve.py`) that handles cross-origin resource sharing (CORS) and disables aggressive caching headers.
+- **Python Environment & Dependencies**: Local virtual environment located at `.venv` (Python 3.12 with CUDA-enabled PyTorch `torch 2.6.0+cu124`, `torchvision`, `transformers`, `scikit-learn`, `pillow`, `rich`, `gallery-dl`).
 - **Python Utilities**: Helper scripts (like `delete_discarded.py`, clustering tools) to process rated images on the local disk using standard Python libraries (e.g. `tkinter`, `pillow`, `sqlite3`).
 - **Downloader Configuration**: `gallery-dl.conf` specifies extractor archives to track downloads in `history.sqlite3`.
 
+## Python Environment & Virtualenv
+All Python scripts requiring deep learning (`imageToVector.py`, `pickWallpaper.py`, `pickWallpaper_ui.py`, `clusterAndRouteFile.py`, `batchManualProcessing7.py`) must be run with the project's virtual environment:
+- **Activate in PowerShell**: `.\.venv\Scripts\Activate.ps1`
+- **Activate in Bash / Git Bash**: `source .venv/Scripts/activate`
+- **Activate in CMD**: `.\.venv\Scripts\activate.bat`
+- **Direct Execution**: `.\.venv\Scripts\python.exe <script.py>`
+
 ## Commands
-- **Launch Frontend Server**: `python mobile-image-ranker/serve.py` (serves the PWA locally on port 8000 and prints local IP links for mobile debugging).
-- **Run Discard Processing GUI/CLI**: `python delete_discarded.py`
-- **Run Pick Wallpaper UI**: `python gallery-dl/pickWallpaper_ui.py`
-- **Run Batch Image Cleaner v7**: `python gallery-dl/batchManualProcessing7.py` (or `python gallery-dl/batchManualProcessing7.py --folder "<DIR>"`)
+- **Extract Feature Vectors**: `.\.venv\Scripts\python gallery-dl/imageToVector.py --help`
+- **Cluster & Route**: `.\.venv\Scripts\python gallery-dl/clusterAndRouteFile.py --help`
+- **Launch Frontend Server**: `.\.venv\Scripts\python mobile-image-ranker/serve.py` (serves the PWA locally on port 8000 and prints local IP links for mobile debugging).
+- **Run Discard Processing GUI/CLI**: `.\.venv\Scripts\python delete_discarded.py`
+- **Run Pick Wallpaper UI**: `.\.venv\Scripts\python gallery-dl/pickWallpaper_ui.py`
+- **Run Batch Image Cleaner v7**: `.\.venv\Scripts\python gallery-dl/batchManualProcessing7.py` (or `.\.venv\Scripts\python gallery-dl/batchManualProcessing7.py --folder "<DIR>"`)
 - **Run Gallery-dl**: `gallery-dl --config gallery-dl.conf "<URL>"`
 
 ## Project Map
@@ -35,7 +45,7 @@ A mobile-first Tinder-style swipe interface to quickly review and sort downloade
 ### Gallery-dl Utilities & Wallpaper Processing (`gallery-dl/`)
 - [pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py): CLIP-based CLI ranker. Uses OpenAI CLIP model via PyTorch to rank images according to positive/negative prompts (e.g. aesthetic, dark theme) and crop aspect ratios for phone and laptop.
 - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py): Web server hosting CLIP ranking and cropping tool, featuring dynamic port allocation and powershell-based folder selection for Windows environments.
-- [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py): GPU-accelerated local desktop web app for rapid album inspection, selection presets, and safe deletion. Static frontend in `gallery-dl/batch-ui/`. See ADR-0001.
+- [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py): GPU-accelerated local desktop web app for rapid album inspection, selection presets, and safe deletion (features left-handed keyboard triage: `1`–`9` toggle cards, `Q` keep largest size, `W` keep best res, `↑`/`↓` cycle albums, `Backspace` delete, `Enter` confirm). Static frontend in `gallery-dl/batch-ui/`. See [ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md) and [ADR-0004](file:///d:/Download/Gallery-dl/docs/decisions/0004-keyboard-triage-and-quality-heuristics.md).
 - [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py): Feature vector extractor using PyTorch MobileNetV2 with GPU acceleration, incremental scanning, and safe `.npz` storage. See ADR-0002.
 - [clusterAndRouteFile.py](file:///d:/Download/Gallery-dl/gallery-dl/clusterAndRouteFile.py): Groups images into clusters using DBSCAN and Cosine distance based on MobileNetV2 embeddings.
 - [findNonImageFile.py](file:///d:/Download/Gallery-dl/findNonImageFile.py): Script to isolate non-image assets/text logs from downloaded folders with recursion safeguards and optional `.lnk` shortcut creation (`--shortcut`). See ADR-0003.

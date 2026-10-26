@@ -16,6 +16,7 @@ This repository contains a collection of scripts and applications designed to ma
 - [gallery-dl.exe](file:///d:/Download/Gallery-dl/gallery-dl.exe) - The gallery-dl executable.
 - [history.sqlite3](file:///d:/Download/Gallery-dl/history.sqlite3) - Database keeping track of downloaded files to prevent duplicates.
 - [requirements.txt](file:///d:/Download/Gallery-dl/requirements.txt) - Python package dependencies.
+- [.venv/](file:///d:/Download/Gallery-dl/.venv) - Project virtual environment containing Python 3.12, PyTorch with CUDA, and all dependencies.
 - [delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py) - Script to delete files in Directory A that share filenames with files in Directory B.
 - [gallery-dl/](file:///d:/Download/Gallery-dl/gallery-dl) - Python utilities for vector extraction, similarity clustering, manual curation, non-image removal, and wallpaper ranking.
   - [batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py) - GPU-accelerated desktop web app for rapid album inspection, selection presets, and safe deletion.
@@ -23,6 +24,28 @@ This repository contains a collection of scripts and applications designed to ma
   - [pickWallpaper_ui.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper_ui.py) - Web-based dashboard for interactive wallpaper ranking, native directory browsing, and crop alignment overrides.
   - [wallpaper-ui/](file:///d:/Download/Gallery-dl/gallery-dl/wallpaper-ui) - Glassmorphic dark HTML/CSS/JS frontend files for the wallpaper ranking app.
 - [mobile-image-ranker/](file:///d:/Download/Gallery-dl/mobile-image-ranker) - Mobile-friendly Progressive Web App (PWA) to visually rank images.
+
+---
+
+## ⚙️ Environment & Dependencies
+
+All Python scripts (specifically PyTorch AI tools like [imageToVector.py](file:///d:/Download/Gallery-dl/gallery-dl/imageToVector.py) and [pickWallpaper.py](file:///d:/Download/Gallery-dl/gallery-dl/pickWallpaper.py)) rely on dependencies installed in the workspace's local virtual environment (`.venv` with Python 3.12 and PyTorch CUDA `2.6.0+cu124`).
+
+Activate the environment before executing commands:
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# Windows Git Bash / Bash
+source .venv/Scripts/activate
+
+# Windows CMD
+.\.venv\Scripts\activate.bat
+```
+Alternatively, invoke the virtualenv Python binary directly:
+```bash
+.\.venv\Scripts\python gallery-dl/imageToVector.py -h
+```
 
 ---
 
@@ -133,7 +156,7 @@ All post-processing Python utilities are located in [gallery-dl/](file:///d:/Dow
 
 ### 5. Desktop Curation GUI
 - **[batchManualProcessing7.py](file:///d:/Download/Gallery-dl/gallery-dl/batchManualProcessing7.py)**
-  A modern, GPU-accelerated local desktop web application with 60–144Hz smooth scrolling, cursor-anchored zoom lightbox, album cycling shortcuts, selection presets (`Keep Best Res`, `Keep First`), and native Windows Recycle Bin integration. See [ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md).
+  A modern, GPU-accelerated local desktop web application with 60–144Hz smooth scrolling, cursor-anchored zoom lightbox, album cycling shortcuts, selection presets (`Keep Best Res`, `Keep Largest Size`, `Keep First`), dual quality badges, and native Windows Recycle Bin integration. See [ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md) and [ADR-0004](file:///d:/Download/Gallery-dl/docs/decisions/0004-keyboard-triage-and-quality-heuristics.md).
 
 ### 6. Synchronizing & Deleting by Reference Filename
 - **[delete_by_filename.py](file:///d:/Download/Gallery-dl/delete_by_filename.py)**
@@ -179,10 +202,18 @@ python mobile-image-ranker/serve.py --port 8000
 *   Select the target folder of images, swipe through the cards (Right = Keep, Left = Discard, Up = Pending), and export your ratings as a JSON file (e.g., `image_rankings.json`).
 
 #### Option B: Desktop Batch Cleaner (v7 Pro)
-Inspect, compare, and sort albums smoothly with GPU-accelerated previews and keyboard navigation:
+Inspect, compare, and sort albums smoothly with GPU-accelerated previews and left-handed keyboard navigation:
 ```bash
 python gallery-dl/batchManualProcessing7.py --folder <folder_path>
 ```
+* **Keyboard Triage:**
+  - <kbd>1</kbd>–<kbd>9</kbd>: Toggle deletion mark on image cards
+  - <kbd>Q</kbd>: Keep largest file by byte size (`Largest Size` in emerald green)
+  - <kbd>W</kbd>: Keep highest resolution image (`Best Res` in purple)
+  - <kbd>↑</kbd> / <kbd>↓</kbd>: Cycle previous / next album in sidebar
+  - <kbd>Backspace</kbd> / <kbd>Del</kbd>: Open deletion modal
+  - <kbd>Enter</kbd>: Confirm deletion
+  - <kbd>Esc</kbd>: Cancel modal or exit fullscreen lightbox
 
 ### 5. Automated Wallpaper Ranking
 Rank and crop the kept images based on zero-shot similarity matching using a CLIP AI model:
@@ -211,4 +242,4 @@ When interacting with this repository, agents should adhere to the following pri
 2. **Context Efficiency:** Do not attempt to process lists of thousands of image filenames unless explicitly requested.
 3. **Execution Safety:** Deep learning tasks standardise on PyTorch (`torch`, `torchvision`, `transformers`). CUDA acceleration is automatically used if available; CPU fallback is supported.
 4. **Code References:** When editing or extending code in this repository, always create clickable file links using absolute URLs with the `file:///` scheme (e.g. `[app.js](file:///d:/Download/Gallery-dl/mobile-image-ranker/app.js)`). Use forward slashes.
-5. **Architecture Decisions:** Consult `docs/decisions/` ([ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md), [ADR-0002](file:///d:/Download/Gallery-dl/docs/decisions/0002-standardize-on-pytorch-and-retire-tensorflow.md), [ADR-0003](file:///d:/Download/Gallery-dl/docs/decisions/0003-file-management-and-deletion-safety.md)) before introducing new dependencies or altering core architecture.
+5. **Architecture Decisions:** Consult `docs/decisions/` ([ADR-0001](file:///d:/Download/Gallery-dl/docs/decisions/0001-batch-image-cleaner-v7-web-ui.md), [ADR-0002](file:///d:/Download/Gallery-dl/docs/decisions/0002-standardize-on-pytorch-and-retire-tensorflow.md), [ADR-0003](file:///d:/Download/Gallery-dl/docs/decisions/0003-file-management-and-deletion-safety.md), [ADR-0004](file:///d:/Download/Gallery-dl/docs/decisions/0004-keyboard-triage-and-quality-heuristics.md)) before introducing new dependencies or altering core architecture.
