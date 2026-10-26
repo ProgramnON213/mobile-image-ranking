@@ -634,6 +634,31 @@ kbd {
   top: 8px;
   left: 8px;
   z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-hotkey-badge {
+  background: rgba(19, 22, 31, 0.85);
+  border: 1px solid var(--border-hover);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.img-card.marked-delete .card-hotkey-badge {
+  border-color: var(--danger);
+  color: #fca5a5;
+  background: rgba(40, 15, 20, 0.9);
 }
 
 .card-checkbox {
@@ -684,6 +709,22 @@ kbd {
   background: var(--accent-light);
   color: #c4b5fd;
   border: 1px solid rgba(139, 92, 246, 0.3);
+  font-weight: 600;
+}
+
+.tag-size-highlight {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-weight: 600;
+}
+
+.btn-tool kbd {
+  margin-left: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.65rem;
+  color: var(--text-secondary);
 }
 
 /* Lightbox Modal */
@@ -848,6 +889,39 @@ kbd {
   backdrop-filter: blur(8px);
   pointer-events: none;
   z-index: 102;
+}
+
+/* Workspace Bottom Shortcut Helper Bar */
+.workspace-footer-tips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(19, 22, 31, 0.95);
+  border-top: 1px solid var(--border-subtle);
+  padding: 8px 16px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.workspace-footer-tips .tip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-footer-tips .tip-sep {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.workspace-footer-tips kbd {
+  font-size: 0.7rem;
 }
 
 /* Modals */

@@ -48,6 +48,7 @@ const elements = {
   btnSelectAll: document.getElementById("btnSelectAll"),
   btnSelectNone: document.getElementById("btnSelectNone"),
   btnInvert: document.getElementById("btnInvert"),
+  btnKeepLargestSize: document.getElementById("btnKeepLargestSize"),
   btnKeepHighestRes: document.getElementById("btnKeepHighestRes"),
   btnKeepFirst: document.getElementById("btnKeepFirst"),
   btnDeleteSelected: document.getElementById("btnDeleteSelected"),
@@ -109,6 +110,7 @@ function setupEventListeners() {
   elements.btnSelectAll.addEventListener("click", selectAllImages);
   elements.btnSelectNone.addEventListener("click", selectNoneImages);
   elements.btnInvert.addEventListener("click", invertSelection);
+  elements.btnKeepLargestSize.addEventListener("click", keepLargestSize);
   elements.btnKeepHighestRes.addEventListener("click", keepHighestRes);
   elements.btnKeepFirst.addEventListener("click", keepFirstImage);
   elements.btnDeleteSelected.addEventListener("click", openDeleteModal);
@@ -299,6 +301,20 @@ async function selectBatch(batch) {
   }
 }
 
+// Navigate between albums in the sidebar using keyboard (ArrowUp / ArrowDown)
+function navigateBatches(delta) {
+  if (!state.filteredBatches.length) return;
+  const curIdx = state.filteredBatches.findIndex(b => b.path === state.activeBatch?.path);
+  const newIdx = Math.max(0, Math.min(state.filteredBatches.length - 1, (curIdx === -1 ? 0 : curIdx) + delta));
+  if (newIdx !== curIdx) {
+    selectBatch(state.filteredBatches[newIdx]);
+    const batchItems = elements.batchList.querySelectorAll(".batch-item");
+    if (batchItems[newIdx]) {
+      batchItems[newIdx].scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+}
+
 // Render Image Cards in the Responsive Grid
 function renderImageGrid() {
   elements.gridContainer.innerHTML = "";
@@ -314,11 +330,14 @@ function renderImageGrid() {
     return;
   }
   
-  // Determine highest resolution image in this batch for highlight badge
+  // Determine highest resolution and largest file size in this batch for highlight badges
   let maxPixels = 0;
+  let maxSize = 0;
   state.images.forEach(img => {
     const px = (img.width || 0) * (img.height || 0);
     if (px > maxPixels) maxPixels = px;
+    const sz = img.size || 0;
+    if (sz > maxSize) maxSize = sz;
   });
   
   state.images.forEach((img, index) => {
@@ -329,10 +348,14 @@ function renderImageGrid() {
     card.dataset.path = img.path;
     
     const isBestRes = maxPixels > 0 && ((img.width || 0) * (img.height || 0)) === maxPixels;
+    const isLargestSize = maxSize > 0 && (img.size || 0) === maxSize;
     
+    const hotkeyBadgeHtml = index < 9 ? `<kbd class="card-hotkey-badge" title="Press '${index + 1}' to toggle">${index + 1}</kbd>` : "";
+
     card.innerHTML = `
       <div class="card-overlay-actions">
         <input type="checkbox" class="card-checkbox" ${isMarked ? "checked" : ""} title="Mark for Deletion">
+        ${hotkeyBadgeHtml}
       </div>
       <div class="img-thumbnail-wrapper">
         <img class="img-thumbnail" src="/api/thumbnail?path=${encodeURIComponent(img.path)}&size=500" loading="lazy" alt="${escapeHtml(img.name)}">
@@ -341,8 +364,9 @@ function renderImageGrid() {
         <div class="card-filename" title="${escapeHtml(img.name)}">${escapeHtml(img.name)}</div>
         <div class="card-meta-tags">
           <span class="tag ${isBestRes ? "tag-highlight" : ""}">${img.width && img.height ? `${img.width}×${img.height}` : "image"}</span>
-          <span class="tag">${img.size_str || ""}</span>
+          <span class="tag ${isLargestSize ? "tag-size-highlight" : ""}">${img.size_str || ""}</span>
           ${isBestRes ? '<span class="tag tag-highlight">Best Res</span>' : ""}
+          ${isLargestSize ? '<span class="tag tag-size-highlight">Largest Size</span>' : ""}
         </div>
       </div>
     `;
@@ -390,6 +414,15 @@ function toggleImageMark(imagePath, isMarked) {
   
   updateDeleteButton();
   updateBatchSubtitle();
+}
+
+// Toggle Deletion Mark for an Image by its Grid Index (0-based)
+function toggleCardByIndex(index) {
+  if (index < 0 || index >= state.images.length) return;
+  const img = state.images[index];
+  if (!img) return;
+  const willMark = !state.markedDeletes.has(img.path);
+  toggleImageMark(img.path, willMark);
 }
 
 // Update the Subtitle Meta with selection stats
@@ -464,6 +497,32 @@ function keepHighestRes() {
   
   refreshCardSelections();
   showToast(`Kept best resolution (${state.images[bestIndex].width}×${state.images[bestIndex].height}), marked others`, "info");
+}
+
+// Keep single largest file by byte size and mark all others
+function keepLargestSize() {
+  if (state.images.length <= 1) return;
+  
+  let bestIndex = 0;
+  let maxSize = -1;
+  
+  state.images.forEach((img, idx) => {
+    const sz = img.size || 0;
+    if (sz > maxSize) {
+      maxSize = sz;
+      bestIndex = idx;
+    }
+  });
+  
+  state.markedDeletes.clear();
+  state.images.forEach((img, idx) => {
+    if (idx !== bestIndex) {
+      state.markedDeletes.add(img.path);
+    }
+  });
+  
+  refreshCardSelections();
+  showToast(`Kept largest file (${state.images[bestIndex].size_str || ""}), marked others`, "info");
 }
 
 // Keep the first image and mark all others
@@ -745,7 +804,7 @@ function handleGlobalShortcuts(e) {
       toggleCurrentLightboxMark();
       return;
     }
-    if (e.key === "Delete") {
+    if (e.key === "Delete" || e.key === "Backspace") {
       openDeleteModal();
       return;
     }
@@ -772,9 +831,28 @@ function handleGlobalShortcuts(e) {
   } else if (e.ctrlKey && e.key.toLowerCase() === "i") {
     e.preventDefault();
     invertSelection();
-  } else if (e.key === "Delete") {
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    navigateBatches(1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    navigateBatches(-1);
+  } else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === "q") {
+    e.preventDefault();
+    keepLargestSize();
+  } else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === "w") {
+    e.preventDefault();
+    keepHighestRes();
+  } else if (e.key === "Delete" || e.key === "Backspace") {
     if (state.markedDeletes.size > 0) {
+      e.preventDefault();
       openDeleteModal();
+    }
+  } else if (!e.ctrlKey && !e.altKey && !e.metaKey && e.key >= "1" && e.key <= "9") {
+    const cardIndex = parseInt(e.key, 10) - 1;
+    if (cardIndex >= 0 && cardIndex < state.images.length) {
+      e.preventDefault();
+      toggleCardByIndex(cardIndex);
     }
   }
 }
@@ -812,4 +890,19 @@ function escapeHtml(str) {
     '"': "&quot;",
     "'": "&#39;"
   })[m]);
+}
+
+// Export for Node.js unit tests if applicable
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    state,
+    elements,
+    toggleCardByIndex,
+    navigateBatches,
+    keepLargestSize,
+    keepHighestRes,
+    handleGlobalShortcuts,
+    escapeHtml,
+    formatBytes
+  };
 }

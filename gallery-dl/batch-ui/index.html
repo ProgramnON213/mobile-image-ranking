@@ -87,7 +87,14 @@
               <button class="btn btn-tool" id="btnSelectAll" title="Select All (Ctrl+A)">All</button>
               <button class="btn btn-tool" id="btnSelectNone" title="Deselect All (Ctrl+D)">None</button>
               <button class="btn btn-tool" id="btnInvert" title="Invert Selection (Ctrl+I)">Invert</button>
-              <button class="btn btn-tool" id="btnKeepHighestRes" title="Keep single highest resolution image and select all others for deletion">Keep Best Res</button>
+              <button class="btn btn-tool" id="btnKeepLargestSize" title="Keep single largest file by size and select others (Q)">
+                <span>Keep Largest Size</span>
+                <kbd>Q</kbd>
+              </button>
+              <button class="btn btn-tool" id="btnKeepHighestRes" title="Keep single highest resolution image and select others (W)">
+                <span>Keep Best Res</span>
+                <kbd>W</kbd>
+              </button>
               <button class="btn btn-tool" id="btnKeepFirst" title="Keep the first image and select all others for deletion">Keep First</button>
             </div>
 
@@ -122,14 +129,36 @@
             <h3>Ready to review images</h3>
             <p>Click "Select Folder" above or run with <code>--folder "D:\Your\Path"</code></p>
             <div class="shortcut-hints">
+              <div class="hint-item"><kbd>1</kbd>–<kbd>9</kbd> Toggle Cards</div>
+              <div class="hint-item"><kbd>Backspace</kbd> / <kbd>Del</kbd> Delete Selected</div>
               <div class="hint-item"><kbd>←</kbd> <kbd>→</kbd> Navigate Lightbox</div>
-              <div class="hint-item"><kbd>Space</kbd> Toggle Mark for Deletion</div>
-              <div class="hint-item"><kbd>Scroll</kbd> Cursor-Centric Smooth Zoom</div>
-              <div class="hint-item"><kbd>Del</kbd> Confirm Delete</div>
-              <div class="hint-item"><kbd>Esc</kbd> Exit Lightbox</div>
+              <div class="hint-item"><kbd>Space</kbd> Toggle Mark in Lightbox</div>
+              <div class="hint-item"><kbd>Enter</kbd> Confirm Modal</div>
+              <div class="hint-item"><kbd>Esc</kbd> Cancel / Exit</div>
             </div>
           </div>
         </div>
+
+        <!-- Persistent Bottom Shortcut Helper Bar -->
+        <footer class="workspace-footer-tips" id="workspaceFooterTips">
+          <div class="tip-pill"><kbd>↑</kbd><kbd>↓</kbd> Prev / Next Folder</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>1</kbd>–<kbd>9</kbd> Toggle Select</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Q</kbd> Keep Size</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>W</kbd> Keep Res</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Backspace</kbd> / <kbd>Del</kbd> Delete Selected</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Enter</kbd> Confirm Modal</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Esc</kbd> Cancel Modal / Exit Lightbox</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Space</kbd> Toggle in Lightbox</div>
+          <span class="tip-sep">•</span>
+          <div class="tip-pill"><kbd>Ctrl+A</kbd> / <kbd>Ctrl+D</kbd> / <kbd>Ctrl+I</kbd> All / None / Invert</div>
+        </footer>
       </main>
     </div>
   </div>
@@ -218,8 +247,14 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button id="btnCancelDelete" class="btn btn-secondary">Cancel</button>
-        <button id="btnConfirmDelete" class="btn btn-danger">Confirm Delete</button>
+        <button id="btnCancelDelete" class="btn btn-secondary">
+          <span>Cancel</span>
+          <kbd>Esc</kbd>
+        </button>
+        <button id="btnConfirmDelete" class="btn btn-danger">
+          <span>Confirm Delete</span>
+          <kbd>Enter</kbd>
+        </button>
       </div>
     </div>
   </div>
